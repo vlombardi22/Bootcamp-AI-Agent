@@ -1,5 +1,4 @@
 import os
-# import copy
 import time
 import random
 
@@ -43,12 +42,12 @@ class SailonViz:
         self.time_delta = 1.0 / 35.0
         self.last_health = None
 
-        # REAL NOVLETY VALS REMOVE IN PUBLIC
+        # REAL NOVELTY VALS REMOVE IN PUBLIC
         self.enemy_num = 4
         self.lives = 4
 
         self.use_new_spawn = 1
-        # REAL NOVLELTY IS REVEALED HERE REMOVE BEGORE SHIPPING
+        # REAL NOVELTY IS REVEALED HERE REMOVE BEFORE SHIPPING
         if self.level == 208:
             self.max_enemy_health = 8 * 10
         else:
@@ -56,7 +55,7 @@ class SailonViz:
         self.total_enemy_health = None
 
         # Set internal params
-        self.step_limit = 2000
+        self.step_limit = 20
         self.actions = {'nothing': [False, False, False, False, False, 0],
                         'left': [True, False, False, False, False, 0],
                         'right': [False, True, False, False, False, 0],
@@ -80,7 +79,7 @@ class SailonViz:
         conv = {'easy': 1, 'medium': 2, 'hard': 3}
         difficulty_str = str(conv[self.difficulty])
 
-        # Decide on agent behvoiur here
+        # Decide on agent behaviour here
         self.Agents = Agents(self.level, self.difficulty, self.use_mock)
 
         # Make and load game parameters here
@@ -98,7 +97,7 @@ class SailonViz:
             # game.set_screen_resolution(vzd.vizdoom.RES_640X400)
             game.set_window_visible(use_gui)
 
-        # Set game tie ins
+        # Set game tie-ins
         game.add_available_game_variable(vzd.vizdoom.HEALTH)
         game.add_available_game_variable(vzd.vizdoom.AMMO2)
 
@@ -120,7 +119,7 @@ class SailonViz:
         game.add_available_game_variable(vzd.vizdoom.USER42)
         game.add_available_game_variable(vzd.vizdoom.USER43)
 
-        # Send level speicfic info here (filtered in wad to select right novelty)
+        # Send level specific info here (filtered in wad to select right novelty)
         game.add_game_args("+set novelty " + str(self.level))
         game.add_game_args("+set difficulty_n " + str(difficulty_str))
         game.add_game_args("+set use_new_spawn" + str(self.use_new_spawn))
@@ -147,7 +146,7 @@ class SailonViz:
         # Decode action
         action = self.actions[action]
 
-        # Set agent behaviour before making the action (which calls an ingame update)
+        # Set agent behaviour before making the action (which calls an in-game update)
         # Returns a string array, use as commands in vizdoom
         comands = self.Agents.act(self.get_state())
         for command in comands:
@@ -171,45 +170,7 @@ class SailonViz:
         target_by_time = current_targets * (self.step_limit - self.tick)
         self.performance = 1 - (self.total_target_count + target_by_time) / (self.step_limit * self.max_target_count)
         self.performance = round(self.performance, 6)
-        if self.performance < 0:
-            print(self.total_target_count)
-            print(current_targets)
-            print(target_by_time)
-            print(self.performance)
-            exit()
 
-        # Calculate performance
-        # See new formula in word doc
-
-        """
-        current_health = 0
-        if self.level == 208:
-            for enemy in observation['enemies']:
-                current_health = current_health + enemy['health']
-            if len(observation['enemies']) < self.enemy_num:
-                self.enemy_num = len(observation['enemies'])
-            if len(observation['enemies']) > self.enemy_num:
-                self.lives = self.lives - 1
-                self.enemy_num = len(observation['enemies'])
-            current_health = current_health + self.lives * 10
-        else:
-            for enemy in observation['enemies']:
-                current_health = current_health + enemy['health']
-        """
-
-        # self.performance = (self.step_limit - self.tick) / self.step_limit
-
-        ''' Performance v1, not quite right
-        if self.is_done():
-            health = 0
-            for enemy in observation['enemies']:
-                health = health + enemy['health']
-            self.total_enemy_health = self.total_enemy_health + (health * (self.step_limit - self.tick + 1))
-        else:
-            for enemy in observation['enemies']:
-                self.total_enemy_health = self.total_enemy_health + enemy['health']
-        self.performance = 1 - self.total_enemy_health / (self.step_limit * self.max_enemy_health)
-        '''
 
         victory = False
         dead = False
@@ -219,7 +180,7 @@ class SailonViz:
             self.performance = 0.0
             dead = True
 
-        # Special check to see if all monsters died (needed to prevent aditional tick)
+        # Special check to see if all monsters died (needed to prevent additional tick)
         if len(observation['enemies']) == 0:
             done = True
             victory = True
@@ -233,7 +194,7 @@ class SailonViz:
         # Get game state information
         observation = self.get_state()
 
-        # Check if game is done naturally (includes tick limit nativelly)
+        # Check if game is done naturally (includes tick limit natively)
         done = self.game.is_episode_finished()
 
         # Check if player died
@@ -244,7 +205,7 @@ class SailonViz:
         if self.Agents.special_exit_flag:
             done = True
 
-        # Special check to see if all monsters died (needed to prevent aditional tick)
+        # Special check to see if all monsters died (needed to prevent additional tick)
         if len(observation['enemies']) == 0:
             done = True
 

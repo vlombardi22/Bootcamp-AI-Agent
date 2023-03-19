@@ -74,6 +74,43 @@ def record_base(global_ep, global_ep_r, ep_r, res_queue, name, enemies, kills, v
         "| Ep_r: %.2f" % global_ep_r.value, " indiv: %.2f" % ep_r, task
     )
 
+def record_fell_ppo(global_ep, global_ep_r, ep_r, res_queue, enemies, kills, victory,
+                dead, ammo, health, task_var, p_queue, f_queue):
+    test = False
+    test2 = False
+    with global_ep.get_lock():
+        global_ep.value += 1
+        if global_ep.value < 20:
+            test = True
+        if global_ep.value >= 80:
+            test2 = True
+
+
+    with global_ep_r.get_lock():
+        if global_ep_r.value == 0.:
+            global_ep_r.value = ep_r
+        else:
+            global_ep_r.value = global_ep_r.value * 0.99 + ep_r * 0.01
+
+    if test:
+        p_queue.put(ep_r)
+    if test2:
+        f_queue.put(ep_r)
+
+    res_queue.put(global_ep_r.value)
+    task = "combat"
+
+    if task_var == 2:
+        task = "reload"
+    elif task_var == 3:
+        task = "heal"
+
+    print(
+        "Ep:", global_ep.value, "enemies:", enemies, "kills:", kills, "victory:", victory, "dead:", dead, "ammo:", ammo,
+        "health:", health,
+        "| Ep_r: %.2f" % global_ep_r.value, " indiv: %.2f" % ep_r, task
+    )
+
 
 
 def record_fell(global_ep, global_ep_r, ep_r, res_queue, name, enemies, kills, victory,

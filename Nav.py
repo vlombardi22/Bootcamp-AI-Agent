@@ -4,7 +4,7 @@ import torch.nn as nn
 
 import torch.nn.functional as F
 
-from newutil import set_init
+from doom_util import set_init
 
 
 
