@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.distributions.categorical import Categorical
 
-#256
+
 class PPOMemory():
     def __init__(self, batch_size):
         self.states = []
