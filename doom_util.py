@@ -5,7 +5,6 @@ from torch import nn
 import torch
 import numpy as np
 import math
-import csv
 
 # 90 degree angle north
 
@@ -193,38 +192,73 @@ def record_boot(global_ep, global_ep_r, ep_r, res_queue, name, enemies, kills, v
     )
 
 
+def helper(player, combat, state):
+    """
+    Determines if a player is close to an obstacle
+    :param player: player object
+    :param combat: combat object
+    :param state: environment state
+    :return: true if not close to an obstacle
+    """
+    check = True
+    if not in_center2(player) and combat == 0:
+        obst = state['items']['obstacle']
+        for o in obst:
+            if get_dist(o, player) < 80:
+                check = False
+    return check
 
 
 
 def in_center2(p):
+    """
+    Checks if player is in cross section
+    :param p: player
+    :return: true if in cross section
+    """
     if 50 > p['y_position'] > -50 or 50 > p['x_position'] > -50:
         return True
     return False
 
 
 def in_center3(p):
+    """
+    checks if in central room away from walls
+    :param p: player
+    :return: true away from walls in central room
+    """
     if 280 > p['y_position'] > -280 and 280 > p['x_position'] > -280:
         return True
     return False
 
 
 def h_check(e):
+    """
+    translates raw enemy health to number of shots it would take to defeat them.
+    :param e: enemey
+    :return:
+    """
     e_health = int(e['health'])
     if e_health == 10:
-        # print("1")
         return 3
     elif e_health == 6:
-        # print("2")
         return 2
     elif e_health == 2:
-        # print("3")
         return 1
     else:
-        # print("4")
         return 0
 
 
 def gunner(e, p, offset, w=18):  # 18 guaranteed
+    """
+    can the player hit the target by shooting or turning
+    takes cone of fire into account
+    :param e: enemy
+    :param p: player
+    :param offset: orientation offset
+    :param w: width or cone of fire
+    :return: can hit
+    """
     p_x = p['x_position']
     p_y = p['y_position']
     e_x = e['x_position']
@@ -276,6 +310,12 @@ def gunner(e, p, offset, w=18):  # 18 guaranteed
 
 
 def target_sighted(e, p):
+    """
+    Checks if the player and enemy are in a junction
+    :param e: enemy
+    :param p: player
+    :return: if the player has the enemy in sight
+    """
     p_x = p['x_position']
     p_y = p['y_position']
     e_x = e['x_position']
@@ -300,6 +340,12 @@ def target_sighted(e, p):
 
 
 def in_door(e, p):
+    """
+    checks if player or enemy are in a door and facing non diagonally
+    :param e: enemy
+    :param p: player
+    :return: true if enemy and player are not in a door or if the player is not facing diagonally
+    """
     angle = p['angle']
     tp = tracker2(p)
     te = tracker2(e)
@@ -315,29 +361,32 @@ def in_door(e, p):
 
 def tracker(t):
     """
-    coord = tracker2(t)
-    if coord < 6:
-        return coord
-    else:
-        return 1  # 6#"d"
+    get room position without the door
+    :param t: object to track
+    :return: room coord
     """
     t_x = t['x_position']
     t_y = t['y_position']
     if 320 > t_y > -320 and 320 > t_x > -320:  # central
-        return 1  # "c"
+        return 1
     elif t_y > 384:  # north
-        return 2  # "n"
+        return 2
     elif t_y < -384:  # south
-        return 3  # "s"
+        return 3
     elif t_x > 384:  # east
-        return 4  # "e"
+        return 4
     elif t_x < -384:  # west
-        return 5  # "w"
-    else:
-        return 1  # "d"
+        return 5
+    else:  # door
+        return 1
 
 
 def tracker2(t):
+    """
+    returns room coord along with if the agent is in a door
+    :param t: object to track
+    :return: room coord
+    """
     t_x = t['x_position']
     t_y = t['y_position']
     if 320 > t_y > -320 and 320 > t_x > -320:  # central
@@ -354,22 +403,36 @@ def tracker2(t):
         return 6  # "d"
 
 
-def get_dist(player, enemy):
+def get_dist(player, target):
+    """
+    gets distance between two objects
+    :param player:
+    :param target:
+    :return:
+    """
     pl_x = player['x_position']
     pl_y = player['y_position']
 
-    en_x = enemy['x_position']
-    en_y = enemy['y_position']
-    e_coor = [en_x, en_y]
+    t_x = target['x_position']
+    t_y = target['y_position']
+    t_coor = [t_x, t_y]
     p_coor = [pl_x, pl_y]
 
-    return math.sqrt(sum((px - qx) ** 2.0 for px, qx in zip(p_coor, e_coor)))  # math.dist(p_coor, e_coor)
+    return math.sqrt(sum((px - qx) ** 2.0 for px, qx in zip(p_coor, t_coor)))
 
 
 # Utility function for getting angle from B-direction to A
 
 
 def get_angle(target, start, offset):
+    """
+    gets the angle between a starting point and a target with offset being the degree difference between current start
+    orientation and desired orientation
+    :param target: target object
+    :param start: starting object of reference
+    :param offset: difference between starts orientation and desired orientation
+    :return: angle and sign
+    """
     pl_x = target['x_position']
     pl_y = target['y_position']
 
@@ -404,13 +467,19 @@ def get_angle(target, start, offset):
     return angle, sign
 
 
-def break_obstacles(test_obst, player):  # items, player):
-    # nav_obst = []
+def break_obstacles(obst_list, player):
+    """
+    extracts obstacle information
+    :param obst_list: list of obstacles
+    :param player:
+    :return:
+    """
+
     ob_list = []
     min_dist = 10000
     m_obst = None
 
-    for o in test_obst:  # items['obstacle']:
+    for o in obst_list:
         dist = get_dist(player, o)
 
         if target_sighted(o, player):
@@ -420,7 +489,7 @@ def break_obstacles(test_obst, player):  # items, player):
             min_dist = dist
             m_obst = o
 
-    if not m_obst:  # len(items['obstacle']) <= 0:
+    if not m_obst:
         nav_obst = [0.0, 0.0, 0.0]
 
     else:
@@ -429,6 +498,12 @@ def break_obstacles(test_obst, player):  # items, player):
 
 
 def break_traps(items, player):
+    """
+    breaks down traps currently nonfunctional
+    :param items:
+    :param player:
+    :return:
+    """
     if len(items['trap']) <= 0:
         return [0.0, 0.0, 0.0]
 
@@ -445,21 +520,21 @@ def break_traps(items, player):
 
 
 def break_ammo(items, player, p_coord, enemies):
-    # clip_list = items['ammo']
+    """
+    ammo info extractor. returns closest and safest ammo pack
+    :param items: item list
+    :param player: player object
+    :param p_coord: player coordinates
+    :param enemies: enemy list
+    :return: ammo object
+    """
     if len(items['ammo']) <= 0:
         return None, [0.0, 0.0, -1.0, 0.0]
     min_dist = 10000
-    #strat_clip = []
     m_ammo = None
     m_back = None
-    a_coord = 0  # tracker(m_ammo)
-    """
-    if empty
-    (elif current and prospective target not in room go to min
-        elif current target not in room but prospective target is in room go to prospective)
-    elif current and prospective target in room go to min
-    elif prospective target == 1 mark as backup
-    """
+    a_coord = 0
+
     for a in items['ammo']:
         dist = get_dist(player, a)
         t_coord = tracker(a)
@@ -480,32 +555,16 @@ def break_ammo(items, player, p_coord, enemies):
 
     # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
     if len(enemies) > 0:
-        """
-        a_coord = tracker(m_ammo)
-        if a_coord != p_coord:
-            for a in clip_list:
-                a_c = tracker(a)
-                if a_c == p_coord:
-                    m_ammo = a
-                    a_coord = a_c
-                    break
-        """
+
         if a_coord != 1 and p_coord == a_coord and m_back:
             hazard = False
-            for e in enemies:  # bookmarke
+            for e in enemies:
                 if tracker(e) == a_coord:
                     hazard = True
                     break
             if hazard:
                 m_ammo = m_back
-    """
-    strat_clip.append(float(m_ammo['x_position']))
-    strat_clip.append(float(m_ammo['y_position']))
-    strat_clip.append(get_dist(player, m_ammo))
-    angle, sign = get_angle(m_ammo, player, 0.0)
-    angle = angle * 180 / np.pi
-    strat_clip.append(angle)
-    """
+
     angle, _ = get_angle(m_ammo, player, 0.0)
     angle = angle * 180 / np.pi
     strat_clip = [float(m_ammo['x_position']), float(m_ammo['y_position']), get_dist(player, m_ammo), angle]
@@ -513,15 +572,21 @@ def break_ammo(items, player, p_coord, enemies):
 
 
 def break_health(items, player, p_coord, enemies):
+    """
+    health pack info extractor. Returns closest and safest health pack
+    :param items: item list
+    :param player: player object
+    :param p_coord: player coordinates
+    :param enemies: enemy list
+    :return: health object.
+    """
     if len(items['health']) <= 0:
         return None, [0.0, 0.0, -1.0, 0.0]
     min_dist = 10000
     m_back = None
     m_health = None
-    # strat_health = []
     m_coord = 0
-    # med_list = items['health']
-    for h in items['health']:  # med_list:
+    for h in items['health']:
         dist = get_dist(player, h)
         t_coord = tracker(h)
         if not m_health:  # if empty
@@ -538,102 +603,85 @@ def break_health(items, player, p_coord, enemies):
             m_coord = t_coord
         elif tracker(h) == 1:
             m_back = h
-    """
-    m_coord = tracker(m_health)
-    if m_coord != p_coord:
-        for h in med_list:
-            h_c = tracker(h)
-            if h_c == p_coord:
-                m_health = h
-                m_coord = h_c
-                break
-    """
+
     if m_coord != 1 and p_coord == m_coord and m_back:
         hazard = False
 
-        for e in enemies:  # bookmarke
+        for e in enemies:
             if tracker(e) == m_coord:
                 hazard = True
                 break
 
         if hazard:
             m_health = m_back
-            # for h in med_list:
-            #    if tracker(h) == 1:
-            #        m_health = h
-            #        break
-    # strat_health.append(float(m_health['x_position']))
-    # strat_health.append(float(m_health['y_position']))
-    # strat_health.append(get_dist(player, m_health))
+
     angle, _ = get_angle(m_health, player, 0.0)
     angle = angle * 180 / np.pi
-    # strat_health.append(angle)
     strat_health = [float(m_health['x_position']), float(m_health['y_position']), get_dist(player, m_health), angle]
 
     return m_health, strat_health
 
 
-def break_enemy2(player, ob_list, enemies, p_coord):
-    a_1 = True
-    a_2 = True
-    a_3 = True
-    a_4 = True
-    seek = False
+def break_enemy(player, ob_list, enemies, p_coord):
+    """
+    gets enemy data and optimal combat data
+    :param player: player object
+    :param ob_list: obstacle list
+    :param enemies: enemy list
+    :param p_coord: player coords
+    :return:
+    """
+    # are the following angles from agent clear
+    ang_45 = True
+    ang_90 = True
+    ang_135 = True
+    ang_180 = True
+    can_kill = False # does the player have enough ammo to defeat an enemy
 
-    nav_enemy = []
-    strat_enemy = []
+    nav_enemy = [] # enemy navigation vector
+    strat_enemy = [] # enemy strategy vector
     combat = 0  # 0 nothing, 1 attack, 2 left, 3 right, 4 m left, 5 m right
-    w_0 = 0
-    min_dist = 10000
-    min_dist2 = 10000
-    m_enemy = None
-    targ_enemy = None
-    m_targ = None
-    ammo = player['ammo']
+    w_0 = 0 # extra width or offset when not in door frame
+    min_dist = 10000 # min dist of targeted enemy overrides
+    min_dist2 = 10000 # closest enemy min dist used for when no enemy is sighted
+    m_enemy = None # closest sighted enemy
+    targ_enemy = None # closest enemy for navigation skill
+    m_targ = None # easiest enemy to hit
+    ammo = player['ammo']  # current player ammo
     firing = False  # do we have a clear line of fire
-    # targ_coord = 0
-
-    # if len(enemies) <= 0:
-    #    #return 0
-    #    targ_coord = 0
-    tir = False
+    tir = False  # target in room (tir)
 
     if tracker2(player) != 6:
         w_0 = 20
-    for e in enemies:  # bookmarke
+    for e in enemies:
         dist = get_dist(player, e)
-        ts = target_sighted(e, player)
+        targ_sighted = target_sighted(e, player)
         if p_coord != 6 and p_coord == tracker(e):
             tir = True
         if min_dist2 > dist:
             min_dist2 = dist
             targ_enemy = e
 
-        if ts:
+        if targ_sighted:
             if min_dist > dist:
                 min_dist = dist
                 m_enemy = e
             if ammo > 0 and not firing:
-                # if ts:
                 if int(h_check(e)) <= ammo:
-                    seek = True
+                    can_kill = True
 
                 if in_door(e, player):
-                    a_0 = False
+                    angle_0 = False # is there an enemy in front of you
 
-                    # dist = get_dist(player, e)
                     if gunner(e, player, 0.0, 40 + w_0):
 
-                        barr = ob_help(ob_list, player, dist, 0.0)
-                        is_clear = True
+                        barr = ob_help(ob_list, player, dist, 0.0) # check for pillars
                         if barr:
-                            if gunner(e, player, 0.0, 18):
+                            if gunner(e, player, 0.0, 18): # shoot at target in front
                                 combat = 1
-                                # strat_enemy = helper(e, player)
                                 m_targ = e
                                 firing = True
-                                # break
-                        elif is_clear:
+                        else: # controls moving left and right to get a better shot
                             ang, sign = get_angle(e, player, 0.0)
 
                             check3 = True
@@ -655,110 +703,101 @@ def break_enemy2(player, ob_list, enemies, p_coord):
                             if check3 or check5:
 
                                 if sign < 1 and check3:
-                                    # print("right")
                                     combat = 5
-                                    if not check4:
-                                        a_0 = True  # we don't want to repeat
-                                        a_2 = True
-                                elif sign == 1 and check5:
-                                    # print("left")
+                                    if not check4: # move right
+                                        angle_0 = True  # we don't want to repeat
+                                        ang_90 = True
+                                elif sign == 1 and check5: # move left
+
                                     combat = 4
                                     if not check4:
-                                        a_0 = True  # we don't want to repeat
-                                        a_2 = True
-                    if a_1 and not firing:
+                                        angle_0 = True  # we don't want to repeat
+                                        ang_90 = True
+                    if ang_45 and not firing: # checks alternate angles
                         w_1 = 30 + w_0
-                        if a_0:
+                        if angle_0:
                             w_1 = 18
 
                         if gunner(e, player, 45.0, w_1) and ob_help(ob_list, player, dist, 45.0):
                             combat = 2
-                            a_1 = False
-                            # strat_enemy = helper(e, player)
+                            ang_45 = False
                             m_targ = e
 
-                        if a_1 and gunner(e, player, -45.0, w_1) and ob_help(ob_list, player, dist, -45.0):
+                        if ang_45 and gunner(e, player, -45.0, w_1) and ob_help(ob_list, player, dist, -45.0):
                             combat = 3
-                            a_1 = False
-                            # strat_enemy = helper(e, player)
+                            ang_45 = False
                             m_targ = e
-                        if a_1 and a_2 and gunner(e, player, 90.0, 30 + w_0) and ob_help(ob_list, player, dist, 90.0):
+                        if ang_45 and ang_90 and gunner(e, player, 90.0, 30 + w_0) and ob_help(ob_list, player, dist, 90.0):
                             combat = 2
-                            a_2 = False
-                            # strat_enemy = helper(e, player)
+                            ang_90 = False
                             m_targ = e
-                        if a_1 and a_2 and gunner(e, player, -90.0, 30 + w_0) and ob_help(ob_list, player, dist, -90.0):
+                        if ang_45 and ang_90 and gunner(e, player, -90.0, 30 + w_0) and ob_help(ob_list, player, dist, -90.0):
                             combat = 3
-                            a_2 = False
-                            # strat_enemy = helper(e, player)
+                            ang_90 = False
                             m_targ = e
-                        if a_1 and a_2 and a_3 and gunner(e, player, 135.0, 30 + w_0) and ob_help(ob_list, player, dist,
+                        if ang_45 and ang_90 and ang_135 and gunner(e, player, 135.0, 30 + w_0) and ob_help(ob_list, player, dist,
                                                                                                   135.0):
                             combat = 2
-                            a_3 = False
-                            # strat_enemy = helper(e, player)
+                            ang_135 = False
                             m_targ = e
-                        if a_1 and a_2 and a_3 and gunner(e, player, -135.0, 30 + w_0) and ob_help(ob_list, player,
+                        if ang_45 and ang_90 and ang_135 and gunner(e, player, -135.0, 30 + w_0) and ob_help(ob_list, player,
                                                                                                    dist,
                                                                                                    -135.0):
                             combat = 3
-                            a_3 = False
-                            # strat_enemy = helper(e, player)
+                            ang_135 = False
                             m_targ = e
-                        if a_1 and a_2 and a_3 and a_4 and gunner(e, player, 180.0, 30 + w_0) and ob_help(ob_list,
+                        if ang_45 and ang_90 and ang_135 and ang_180 and gunner(e, player, 180.0, 30 + w_0) and ob_help(ob_list,
                                                                                                           player,
                                                                                                           dist, 180.0):
                             combat = 2
-                            a_4 = False
-                            # strat_enemy = helper(e, player)
+                            ang_180 = False
                             m_targ = e
 
-    if p_coord != 1:
+    if p_coord != 1: # move towards center room for default nav ig not in it
         targ_coord = 1
-    elif not targ_enemy:
+    elif not targ_enemy: # set targ_coord to 0 if no enemies
         targ_coord = 0
-    else:
+    else: # move towards target_coord for navigation
         targ_coord = tracker(targ_enemy)
 
-    if not m_enemy:
+    if not m_enemy: # if no sighted enemies
         nav_enemy = [0.0, 0.0, 10000.0]
         strat_enemy = [0.0, 0.0, 0.0, -1.0, 0.0]
-        # targ_coord = 0
-    else:
+    else: # sighted enemies.
         nav_enemy = [float(m_enemy['x_position']), float(m_enemy['y_position']), min_dist]
-        # if p_coord == 1:
-        #    targ_coord = tracker(m_enemy)
-
         if m_targ:
-            # strat_enemy = helper(m_targ, player)
             angle, _ = get_angle(m_targ, player, 0.0)
             angle = angle * 180 / np.pi
             strat_enemy = [m_targ['x_position'], m_targ['y_position'], h_check(m_targ), get_dist(m_targ, player), angle]
         else:
-            # strat_enemy = helper(m_enemy, player)
             angle, _ = get_angle(m_enemy, player, 0.0)
             angle = angle * 180 / np.pi
             strat_enemy = [m_enemy['x_position'], m_enemy['y_position'], h_check(m_enemy), get_dist(m_enemy, player),
                            angle]
-    return nav_enemy, strat_enemy, combat, targ_coord, tir, seek
+    return nav_enemy, strat_enemy, combat, targ_coord, tir, can_kill
 
 
-def breaker(state, test_obst):  # bookmark
+def breaker(state, obst_list):
+    """
+    breaks a state into an object and returns combat recommendation as well as clip and ammo objects.
+    :param state: game state
+    :param obst_list: obstacle list
+    :return: sensor vectors for navigation and strategy. Also returns combat action. returns ammo and health objects. also returns target_coord for navigation and
+    target in room and can kill checks
+    """
     enemies = state['enemies']
     items = state['items']
     player = state['player']
 
     # combat = 0  # 0 nothing, 1 attack, 2 left, 3 right, 4 m left, 5 m right
-    nav_obst, ob_list = break_obstacles(test_obst, player)  # items, player)
+    nav_obst, ob_list = break_obstacles(obst_list, player)
     p_coord = tracker(player)
 
-    nav_enemy, strat_enemy, combat, targ_coord, tir, seek = break_enemy2(player, ob_list, enemies, p_coord)
-    #print(len(strat_enemy))
-    #exit()
+    nav_enemy, strat_enemy, combat, targ_coord, tir, can_kill = break_enemy(player, ob_list, enemies, p_coord)
+
     e_count = len(enemies)
     a_count = len(items['ammo'])
     h_count = len(items['health'])
-    # nav_trap = break_traps(items, player)
 
     clip, strat_ammo = break_ammo(items, player, p_coord, enemies)
     med, strat_health = break_health(items, player, p_coord, enemies)
@@ -768,70 +807,80 @@ def breaker(state, test_obst):  # bookmark
 
     if nav_enemy[2] < 90.0 and (nav_enemy[2] < nav_obst[2] or nav_obst[2] <= 0):
         nav_obst = nav_enemy
-    avatar2 = [float(player['x_position']), float(player['y_position']), float(player['angle']), 30]  # , 20]
+    avatar2 = [float(player['x_position']), float(player['y_position']), float(player['angle']), 30]
 
     sensor_vec2 = avatar2 + [0.0, 0.0, 0.0] + nav_obst + [0.0, 0.0, -1.0]
     return np.asarray(sensor_vec), np.asarray(
-        sensor_vec2), e_count, combat, clip, med, targ_coord, tir, seek
+        sensor_vec2), e_count, combat, clip, med, targ_coord, tir, can_kill
+
+
 
 
 def to_border(player, target):
+    """
+    takes you to an outer room
+    :param player: player object
+    :param target: target coord
+    :return: act that will take you to an outer room
+    """
+
+
+
     my_act = np.dtype('int64').type(3)
     angle = player['angle']
     if target > 1:
         if target == 2:
             if angle != 90.0:
                 if 270 > angle > 90:
-                    my_act = np.dtype('int64').type(5)  # 'turn_right'
+                    my_act = np.dtype('int64').type(5)  # turn right
                 else:
                     my_act = np.dtype('int64').type(4)
 
         elif target == 3:
             if angle != 270.0:
                 if 270 > angle > 90:
-                    my_act = np.dtype('int64').type(4)  # 'turn_left'
+                    my_act = np.dtype('int64').type(4)  # turn left
                 else:
                     my_act = np.dtype('int64').type(5)
         elif target == 4:
             if angle != 0.0:
                 if angle > 180:
-                    my_act = np.dtype('int64').type(4)  # 'turn_left'
+                    my_act = np.dtype('int64').type(4)  # turn left
                 else:
                     my_act = np.dtype('int64').type(5)
 
         elif target == 5:
             if angle != 180.0:
                 if angle > 180:
-                    my_act = np.dtype('int64').type(5)  # 'turn_right'
+                    my_act = np.dtype('int64').type(5)  # turn right
                 else:
                     my_act = np.dtype('int64').type(4)
 
-        if my_act == 3 and not (
-                in_center2(player)):  # or (tracker2(player) == 6 and get_dist(player, self.c_list[target-1]) > 200)):
+        if my_act == 3 and not (in_center2(player)):
             if target == 2:
 
                 if player['x_position'] < 0:
-                    my_act = np.dtype('int64').type(1)
+                    my_act = np.dtype('int64').type(1)  # right
                 else:
                     my_act = np.dtype('int64').type(0)
 
             elif target == 3:
 
                 if player['x_position'] < 0:
-                    my_act = np.dtype('int64').type(0)
+                    my_act = np.dtype('int64').type(0)  # left
                 else:
                     my_act = np.dtype('int64').type(1)
 
             elif target == 4:
 
                 if player['y_position'] < 0:
-                    my_act = np.dtype('int64').type(0)
+                    my_act = np.dtype('int64').type(0)  # left
                 else:
                     my_act = np.dtype('int64').type(1)
 
             elif target == 5:
                 if player['y_position'] < 0:
-                    my_act = np.dtype('int64').type(1)
+                    my_act = np.dtype('int64').type(1)  # right
                 else:
                     my_act = np.dtype('int64').type(0)
 
@@ -839,6 +888,14 @@ def to_border(player, target):
 
 
 def ob_help(ob_list, player, e_dist, offset):
+    """
+    is an obstacle in the way and closer than an enemy
+    :param ob_list: list of obstacles
+    :param player: player object
+    :param e_dist: target enemy distance
+    :param offset: orientation offset
+    :return: if object is in the way
+    """
     for o in ob_list:
         w = 40.0
         if tracker(o) != 1:
@@ -850,62 +907,69 @@ def ob_help(ob_list, player, e_dist, offset):
 
 
 def to_center(player, p_coord):
-    my_act = np.dtype('int64').type(3)  # 'nothing'  # 'forward'
+    """
+    navigates player towards central room mainly to get through doors
+    :param player: player object
+    :param p_coord: player coord
+    :return: action to get player towards center
+    """
+
+    my_act = np.dtype('int64').type(3)  # forward
     angle = player['angle']
     if p_coord == 2:
         if angle != 270.0:
             if 270 > angle > 90:
-                my_act = np.dtype('int64').type(4)  # 'turn_left'
+                my_act = np.dtype('int64').type(4)  # turn left
             else:
                 my_act = np.dtype('int64').type(5)
 
     elif p_coord == 3:
         if angle != 90.0:
             if 270 > angle > 90:
-                my_act = np.dtype('int64').type(5)  # 'turn_right'
+                my_act = np.dtype('int64').type(5)  # turn right
             else:
                 my_act = np.dtype('int64').type(4)
     elif p_coord == 4:
         if angle != 180.0:
             if angle > 180:
-                my_act = np.dtype('int64').type(5)  # 'turn_right'
+                my_act = np.dtype('int64').type(5)  # turn right
             else:
                 my_act = np.dtype('int64').type(4)
 
     elif p_coord == 5:
         if angle != 0.0:
             if angle > 180:
-                my_act = np.dtype('int64').type(4)  # 'turn_left'
+                my_act = np.dtype('int64').type(4)  # turn left
             else:
                 my_act = np.dtype('int64').type(5)
 
-    if my_act == 3:  # 'nothing':
+    if my_act == 3:  # forward
         if not in_center2(player):
             if p_coord == 2:
 
                 if player['x_position'] < 0:
-                    my_act = np.dtype('int64').type(0)  # 'left'
+                    my_act = np.dtype('int64').type(0)  # left
                 else:
-                    my_act = np.dtype('int64').type(1)  # 'right'
+                    my_act = np.dtype('int64').type(1)  # right
 
             elif p_coord == 3:
 
                 if player['x_position'] < 0:
-                    my_act = np.dtype('int64').type(1)  # 'right'
+                    my_act = np.dtype('int64').type(1)  # right
                 else:
-                    my_act = np.dtype('int64').type(0)  # 'left'
+                    my_act = np.dtype('int64').type(0)  # left
 
             elif p_coord == 4:
 
                 if player['y_position'] < 0:
-                    my_act = np.dtype('int64').type(1)  # 'right'
+                    my_act = np.dtype('int64').type(1)  # right
                 else:
-                    my_act = np.dtype('int64').type(0)  # 'left'
+                    my_act = np.dtype('int64').type(0)  # left
 
             elif p_coord == 5:
                 if player['y_position'] < 0:
-                    my_act = np.dtype('int64').type(0)  # 'left'
+                    my_act = np.dtype('int64').type(0)  # left
                 else:
-                    my_act = np.dtype('int64').type(1)  # 'right'
+                    my_act = np.dtype('int64').type(1)  # right
 
     return my_act

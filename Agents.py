@@ -1,4 +1,3 @@
-import time
 import random
 
 import numpy as np
@@ -27,13 +26,13 @@ class Agents:
 
         self.viz_id_to_cvar = None
 
-        # Used for checking wall colision
+        # Used for checking wall collision
         self.walls = None
 
         # Used for check
         self.last_dist = np.zeros((4, 4))
 
-        # Abandonded novelties
+        # Abandoned novelties
         # For un-used novelty
         self.hunger_games_tick = None
 

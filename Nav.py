@@ -11,12 +11,10 @@ from doom_util import set_init
 
 class Net(nn.Module):
 
-    def __init__(self, s_dim, a_dim):
+    def __init__(self, s_dim, a_dim, H_1=64, H_2=32):
         super(Net, self).__init__()
         self.s_dim = s_dim
         self.a_dim = a_dim
-        H_1 = 64
-        H_2 = 32
 
         self.actor1 = nn.Linear(s_dim, H_1)
         self.actor2 = nn.Linear(H_1, H_2)
@@ -27,7 +25,6 @@ class Net(nn.Module):
         self.critic2 = nn.Linear(H_1, H_2)
         self.critic3 = nn.Linear(H_2, H_2)
         self.critic4 = nn.Linear(H_2, 1)
-
 
         set_init([self.actor1, self.actor2, self.actor3, self.actor4, self.critic1, self.critic2, self.critic3, self.critic4])
 

@@ -1,6 +1,6 @@
 import torch
 from doom_util import v_wrap, tracker, get_dist, \
-    in_center2, in_center3, tracker2, to_center, to_border, breaker, record_fell_ppo
+    in_center3, tracker2, to_center, to_border, breaker, record_fell_ppo, helper
 import torch.multiprocessing as mp
 from Nav import Net as nav
 from ppo_util import Agent
@@ -20,26 +20,23 @@ STATE_SIZE = 25
 ACTION_SIZE = 4
 
 
-def helper(player, combat, state):
-    """
-    Determines if a player is close to an obstacle
-    :param player: player object
-    :param combat: combat object
-    :param state: environment state
-    :return: true if not close to an obstacle
-    """
-    check = True
-    if not in_center2(player) and combat == 0:
-        obst = state['items']['obstacle']
-        for o in obst:
-            if get_dist(o, player) < 80:
-                check = False
-    return check
-
-
 class Worker():
+    def __init__(self, strategist, nav_room, nav_object, global_ep, global_ep_r, res_queue, test_results, my_jump,
+                 my_asym, info_list):
+        """
+        Worker initialization
+        :param strategist: strategy net
+        :param nav_room: navigation skill for rooms
+        :param nav_object: navigation skill for objects
+        :param global_ep: global episode count
+        :param global_ep_r: global episode reward
+        :param res_queue: training performance
+        :param test_results: test metrics
+        :param my_jump: jumpstart
+        :param my_asym: asymptotic performance
+        :param info_list: episode metrics
+        """
 
-    def __init__(self, strategist, nav_room, nav_object, global_ep, global_ep_r, res_queue, test_results, my_jump, my_asym, info_list):
         self.g_ep, self.g_ep_r, self.res_queue = global_ep, global_ep_r, res_queue
         self.strategist = strategist
         self.nav_room = nav_room
@@ -75,7 +72,6 @@ class Worker():
             self.seed_list = [np.random.randint(0, 1000) for i in range(MAX_EP)]
 
         self.game = SViz(use_mock, use_novel, level, False, seed, difficulty, use_seed=self.use_seed)
-
 
     def helm(self, nav_vec, state, combat, patrol_targ, clip, med, act, targ_coord, tir, p_coord, player, ammo):
         """
@@ -229,7 +225,10 @@ class Worker():
         return r_act, m_act, c_act, n_act, override
 
     def run(self):  # bookmark
-
+        """
+        Main Driver Method
+        :return:
+        """
         total_step = 1
         actions = ['left', 'right', 'backward', 'forward', 'shoot', 'turn_left', 'turn_right', 'nothing']
         actions2 = ['left', 'right', 'backward', 'forward', 'turn_left', 'turn_right']
@@ -254,34 +253,34 @@ class Worker():
                 seed = self.seed_list[episode]
 
             state = self.game.reset(seed)
-            test_obst = state['items']['obstacle']
+            pillar = state['items']['obstacle']  # the pillar does not move so we only need to get it once
 
-            state_vec, nav_vec, e_count, combat, clip, med, targ_coord, tir, seek = breaker(state,
-                                                                                            test_obst)  # initial state_vec
+            state_vec, nav_vec, e_count, combat, clip, med, targ_coord, tir, can_kill = breaker(state,
+                                                                                            pillar)  # initial state_vec
 
-            step = 0
-            kills = 0
+            step = 0  # current step
+            kills = 0  # kills
             patrol_targ = 0  # coordinate for moving in a rough circle around the central room
-            a_count = 0
-            h_count = 0
-            prev_act = 'nothing'
-            stuck = False
-            rotate_count = 0
-            ep_reward = 0.0
-            over_ride = False
-            t_count = e_count
+            a_count = 0  # number of ammo packs
+            h_count = 0  # number of health packs
+            prev_act = 'nothing'  # previous action
+            stuck = False  # is the agent stuck
+            rotate_count = 0  # how many times has the agent turned in a row
+            ep_reward = 0.0  # episode reward
+            over_ride = False  # override variable for going through doors
+            t_count = e_count  # total enemy count at round start
 
-            player = state['player']
-            hp = int(player['health'])
-            pl_x = player['x_position']
-            pl_y = player['y_position']
-            ammo = int(player['ammo'])
-            p_coord = tracker(player)
+            player = state['player']  # player object
+            health = int(player['health'])  # health points or current player health
+            pl_x = player['x_position']  # player x
+            pl_y = player['y_position']  # player y
+            ammo = int(player['ammo'])  # player ammo
+            p_coord = tracker(player)  # player room coord
 
-            state_vec[task_index] = task_var
+            state_vec[task_index] = task_var  # what tasks is the agent doing
 
-            if e_count > 0:  # can attack
-                a_check = seek
+            if e_count > 0:  # check if the agent can fight
+                a_check = can_kill
                 if combat > 0:
                     if a_check:
                         state_vec[combat_index] = 3.0
@@ -290,13 +289,13 @@ class Worker():
                 elif a_check:
                     state_vec[combat_index] = 1.0
 
-            if med and ACTION_SIZE == 4:
+            if med:  # check if the agent can get health
                 if tracker(med) == p_coord and get_dist(med, player) <= 200:
                     state_vec[heal_index] = 2.0
                 else:
                     state_vec[heal_index] = 1.0
 
-            if clip:
+            if clip:  # check if the agent can get ammo
                 if tracker(clip) == p_coord and get_dist(clip, player) <= 200:
                     state_vec[reload_index] = 2.0
                 else:
@@ -317,7 +316,7 @@ class Worker():
                 elif tracker2(player) != 6:
                     over_ride = False
 
-                if act == 0:
+                if act == 0:  # combat
                     my_act = actions[c_act]
 
                     if c_act == 7:
@@ -329,11 +328,11 @@ class Worker():
                         over_ride = False
                         rotate_count = 0
 
-                else:
+                else:  # navigation
                     immobile = False
-                    if over_ride and tracker2(player) == 6: # override for moving through door
+                    if over_ride and tracker2(player) == 6:  # override for moving through door
                         my_act = "forward"
-                    elif act == 1:  # navigation
+                    elif act == 1:  # navigation default skill
                         my_act = actions2[n_act]
 
                     elif act == 2:  # health skill
@@ -347,12 +346,11 @@ class Worker():
                     else:  # ammo skill
                         if r_act < 7:
                             my_act = actions2[r_act]
-
                         else:
                             my_act = 'nothing'
                             immobile = True
                             reward = -2
-                    if not immobile and stuck: # helps the agent get unstuck
+                    if not immobile and stuck:  # helps the agent get unstuck
 
                         act_temp = prev_act
                         while act_temp == prev_act:
@@ -362,25 +360,28 @@ class Worker():
 
                         stuck = False
 
+                # count number of times the agent turns
                 if my_act == 'turn_left' or my_act == 'turn_right':
                     rotate_count += 1
                 else:
                     rotate_count = 0
 
-                if rotate_count >= 10: # if the agent starts rotating to much mark it as stuck
+                if rotate_count >= 10:  # if the agent starts rotating to much mark it as stuck
                     stuck = True
 
                 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+                # make action
                 new_state, performance, done, victory, dead = self.game.step(my_act)
 
+                # get new values
                 player = new_state['player']
 
                 pl_x2 = player['x_position']
                 pl_y2 = player['y_position']
 
-                health = int(player['health'])
+                n_health = int(player['health'])
                 n_ammo = int(player['ammo'])
-                nstate_vec, nnav_vec, e_temp, combat, clip, med, targ_coord, tir, seek = breaker(new_state, test_obst)
+                nstate_vec, nnav_vec, e_temp, combat, clip, med, targ_coord, tir, can_kill = breaker(new_state, pillar)
                 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                 # change patrol_targ to next target in list when agent gets close this causes the agent to move in a rough circle in the central room
                 if get_dist(player, self.patrol_list[patrol_targ]) <= 60.0:
@@ -388,12 +389,13 @@ class Worker():
                     if patrol_targ == 4:
                         patrol_targ = 0
 
+                # check if player is stuck
                 if int(pl_x) == int(pl_x2) and int(pl_y) == int(pl_y2):
                     if my_act == 'left' or my_act == 'right' or my_act == 'backward' or my_act == 'forward':
                         stuck = True
                         prev_act = my_act
 
-                if victory:
+                if victory:  # check for victory
                     victory_count += 1
                     if step < 751:
                         reward += 10
@@ -401,7 +403,7 @@ class Worker():
                 pl_x = pl_x2
                 pl_y = pl_y2
 
-                if e_temp < e_count:
+                if e_temp < e_count:  # check for kills
                     reward += 100
 
                     kills += 1
@@ -409,31 +411,32 @@ class Worker():
                         reward += 20
                     elif step < 400:
                         reward += 10
-                e_count = e_temp
-                if n_ammo > ammo:
+
+                if n_ammo > ammo:  # check for new ammo
                     reward += 10
                     if act == 3:
                         reward += 50
 
                     a_count += 1
 
-                if health > hp:
+                if n_health > health:  # check for more health
 
                     reward += 10
                     if act == 2:
                         reward += 50
                     h_count += 1
 
-                elif health < hp:
+                elif n_health < health:  # check for damage
                     reward -= 1
 
+                e_count = e_temp
                 ammo = n_ammo
-                hp = health
+                health = n_health
 
                 nstate_vec[task_index] = task_var
 
                 if e_count > 0:
-                    a_check = seek
+                    a_check = can_kill
                     if combat > 0:
                         if a_check:
                             nstate_vec[combat_index] = 3.0
@@ -454,9 +457,10 @@ class Worker():
                     else:
                         nstate_vec[reload_index] = 1.0
                 ep_reward += reward
-                if not IS_TEST:
 
+                if not IS_TEST:
                     self.strategist.remember(state_vec, act, prob, val, reward, done)
+
                 if (
                         not IS_TEST and total_step % UPDATE_GLOBAL_ITER == 0) or done:  # update global and assign to local net
                     # sync
@@ -499,13 +503,24 @@ class Worker():
         self.res_queue.put(None)
 
 
-def main(base_file, test_results, my_res, new_file, train_metrics, raw_file):
+def train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_file):
+    """
+    runs a single game
+    :param base_file: file we load from
+    :param test_results: test wins, raw score, preformance
+    :param my_res: preformance for training
+    :param new_file: file we save to
+    :param train_metrics: jump start and asympotic performance queue
+    :param raw_file: file to save episode info to
+    :return:
+    """
     batch_size = 5
     n_epochs = 4
     alpha = 0.0003
     myshape = np.zeros(STATE_SIZE)
 
-    strategist = Agent(n_actions=ACTION_SIZE, input_dims=myshape.shape, batch_size=batch_size, alpha=alpha, n_epochs=n_epochs)
+    strategist = Agent(n_actions=ACTION_SIZE, input_dims=myshape.shape, batch_size=batch_size, alpha=alpha,
+                       n_epochs=n_epochs)
     nav_room = nav(13, 6)
     nav_object = nav(13, 6)
 
@@ -524,7 +539,8 @@ def main(base_file, test_results, my_res, new_file, train_metrics, raw_file):
     else:
         print("training")
 
-    worker = Worker(strategist, nav_room, nav_object, global_ep, global_ep_r, res_queue, test_results, my_jump, my_asym, my_info)
+    worker = Worker(strategist, nav_room, nav_object, global_ep, global_ep_r, res_queue, test_results, my_jump, my_asym,
+                    my_info)
     worker.run()
     res = []  # record episode reward to plot
     m_jump = 0
@@ -613,7 +629,7 @@ if __name__ == "__main__":
         raw_file = f_temp + "raw.csv"
 
         print(base_file)
-        my_res = main(base_file, test_results, my_res, new_file, train_metrics, raw_file)
+        my_res = train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_file)
 
     IS_TEST = True
 
@@ -628,7 +644,7 @@ if __name__ == "__main__":
         raw_file = f_temp + "rawtest.csv"
 
         print(base_file)
-        _ = main(base_file, test_results, my_res, new_file, train_metrics, raw_file)
+        _ = train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_file)
     # name of csv file
     filename = "boot_ppo_task5.csv"
     outname = "boot_task5_ppo.txt"
