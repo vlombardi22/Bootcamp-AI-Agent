@@ -1,77 +1,97 @@
+"""
+Reinforcement Learning (A3C) using Pytroch + multiprocessing.
+The most simple implementation for continuous action.
+View more on my Chinese tutorial page [莫烦Python](https://morvanzhou.github.io/).
+"""
 import torch
-from doom_util import v_wrap, tracker, get_dist, \
-    in_center3, tracker2, to_center, to_border, breaker, record_fell_ppo, helper
+from doom_util import v_wrap, push_and_pull, record_fell, tracker, get_dist, \
+    in_center3, tracker2, to_center, to_border, breaker, helper
 import torch.multiprocessing as mp
 from Nav import Net as nav
-from ppo_util import Agent
+from shared import SharedAdam
 
 import numpy as np
 from viz_task45 import SailonViz as SViz
 
 import random
+import os
 import csv
 
-UPDATE_GLOBAL_ITER = 20
-MAX_EP = 100
+os.environ["OMP_NUM_THREADS"] = "4"
 
+UPDATE_GLOBAL_ITER = 20
+GAMMA = 0.97  # 0.60  # 0.97
+MAX_EP = 1000
+HIDDEN_SIZE = 32  # 128
+H_SIZE = 16  # 64
+
+IS_CONTROL = False
 IS_TEST = False
 
 STATE_SIZE = 25
 ACTION_SIZE = 4
 
 
-class Worker():
-    def __init__(self, strategist, nav_room, nav_object, global_ep, global_ep_r, res_queue, test_results, my_jump,
+
+class Worker(mp.Process):
+
+    def __init__(self, strategist, nav_room, nav_object, opt, global_ep, global_ep_r, res_queue, name, f, stric, test_results, my_jump,
                  my_asym, info_list):
         """
-        Worker initialization
         :param strategist: strategy net
         :param nav_room: navigation skill for rooms
         :param nav_object: navigation skill for objects
+        :param opt: optimizer
         :param global_ep: global episode count
         :param global_ep_r: global episode reward
         :param res_queue: training performance
+        :param name: thread name
+        :param f: file name
+        :param stric: load strict
         :param test_results: test metrics
         :param my_jump: jumpstart
         :param my_asym: asymptotic performance
         :param info_list: episode metrics
         """
-
+        super(Worker, self).__init__()
+        self.name = 'w%02i' % name
         self.g_ep, self.g_ep_r, self.res_queue = global_ep, global_ep_r, res_queue
-        self.strategist = strategist
+        self.gstrat, self.opt = strategist, opt
+        self.lstrat = nav(STATE_SIZE, ACTION_SIZE, HIDDEN_SIZE, ACTION_SIZE)
         self.nav_room = nav_room
         self.nav_object = nav_object
-        self.test_results = test_results
         self.info_list = info_list
+        self.test_results = test_results
         self.my_jump = my_jump
         self.my_asym = my_asym
+        self.lstrat.load_state_dict(f, strict=stric)
 
-        # target coordinates for each room
         self.room_list = [{"x_position": 0.0, "y_position": 0.0}, {"x_position": 0.0, "y_position": 458.0},
                           {"x_position": 0.0, "y_position": -458.0}, {"x_position": 458.0, "y_position": 0.0},
                           {"x_position": -458.0, "y_position": 0.0},
                           {"x_position": 0.0, "y_position": 0.0}]
-        # coordinates for moving around the main room
         self.patrol_list = [{"x_position": 180.0, "y_position": 0.0}, {"x_position": 0.0, "y_position": 180.0},
                             {"x_position": -180.0, "y_position": 0}, {"x_position": 0, "y_position": -180.0}]
 
         seed = 97
-        use_mock = 0
-        use_novel = 1
-        level = 208
-        difficulty = 'easy'
 
         self.seed_list = []
         self.use_seed = False
 
         if IS_TEST:
             self.use_seed = True
+        if self.use_seed:
             random.seed(seed)
             np.random.seed(seed)
-
             self.seed_list = [np.random.randint(0, 1000) for i in range(MAX_EP)]
 
-        self.game = SViz(use_mock, use_novel, level, False, seed, difficulty, use_seed=self.use_seed)
+        use_mock = 0
+        self.use_novel = 1
+
+        level = 208
+        difficulty = 'easy'
+
+        self.game = SViz(use_mock, self.use_novel, level, False, seed, difficulty, use_seed=self.use_seed)
 
     def helm(self, nav_vec, state, combat, patrol_targ, clip, med, act, targ_coord, tir, p_coord, player, ammo):
         """
@@ -114,7 +134,7 @@ class Worker():
                     nav_vec[4] = float(med['x_position'])
                     nav_vec[5] = float(med['y_position'])
                     nav_vec[6] = get_dist(med, player)
-                    m_act = self.nav_object.choose_action(v_wrap(nav_vec[None, :]))
+                    m_act = self.nav_room.choose_action(v_wrap(nav_vec[None, :]))
                 else:
 
                     if 270 > player['angle'] > 90:
@@ -150,7 +170,7 @@ class Worker():
                     nav_vec[4] = float(clip['x_position'])
                     nav_vec[5] = float(clip['y_position'])
                     nav_vec[6] = get_dist(player, clip)
-                    r_act = self.nav_object.choose_action(v_wrap(nav_vec[None, :]))
+                    r_act = self.nav_room.choose_action(v_wrap(nav_vec[None, :]))
 
                 else:
                     if 270 > player['angle'] > 90:
@@ -193,13 +213,13 @@ class Worker():
                     nav_vec[5] = self.patrol_list[patrol_targ]['y_position']
                     nav_vec[6] = get_dist(player, self.patrol_list[patrol_targ])
 
-                    n_act = self.nav_object.choose_action(v_wrap(nav_vec[None, :]))
+                    n_act = self.nav_room.choose_action(v_wrap(nav_vec[None, :]))
 
                 else:
                     nav_vec[4] = self.room_list[p_coord - 1]['x_position']
                     nav_vec[5] = self.room_list[p_coord - 1]['y_position']
                     nav_vec[6] = get_dist(player, self.room_list[p_coord - 1])
-                    n_act = self.nav_object.choose_action(v_wrap(nav_vec[None, :]))
+                    n_act = self.nav_room.choose_action(v_wrap(nav_vec[None, :]))
 
             elif p_coord != 1:
 
@@ -256,7 +276,7 @@ class Worker():
             pillar = state['items']['obstacle']  # the pillar does not move so we only need to get it once
 
             state_vec, nav_vec, e_count, combat, clip, med, targ_coord, tir, can_kill = breaker(state,
-                                                                                            pillar)  # initial state_vec
+                                                                                                pillar)  # initial state_vec
 
             step = 0  # current step
             kills = 0  # kills
@@ -276,7 +296,7 @@ class Worker():
             pl_y = player['y_position']  # player y
             ammo = int(player['ammo'])  # player ammo
             p_coord = tracker(player)  # player room coord
-
+            buffer_s, buffer_a, buffer_r = [], [], []
             state_vec[task_index] = task_var  # what tasks is the agent doing
 
             if e_count > 0:  # check if the agent can fight
@@ -305,8 +325,7 @@ class Worker():
                 step += 1
                 reward = -1
                 p_coord = tracker(player)
-                act, prob, val = self.strategist.choose_action(state_vec)
-
+                act = self.lstrat.choose_action(v_wrap(state_vec[None, :]))
                 r_act, m_act, c_act, n_act, override = self.helm(nav_vec, state, combat, patrol_targ, clip, med, act,
                                                                  targ_coord, tir, p_coord, player, ammo)
 
@@ -459,13 +478,19 @@ class Worker():
                 ep_reward += reward
 
                 if not IS_TEST:
-                    self.strategist.remember(state_vec, act, prob, val, reward, done)
+                    buffer_a.append(act)
+                    buffer_s.append(state_vec)
+                    buffer_r.append(reward)
 
                 if (
                         not IS_TEST and total_step % UPDATE_GLOBAL_ITER == 0) or done:  # update global and assign to local net
                     # sync
-                    if not IS_TEST:
-                        self.strategist.learn()
+                    if len(buffer_s) > 0 and not IS_TEST:
+                        push_and_pull(self.opt, self.lstrat, self.gstrat, done, nstate_vec, buffer_s, buffer_a,
+                                      buffer_r,
+                                      GAMMA)
+
+                    buffer_s, buffer_a, buffer_r = [], [], []
 
                     if done:  # done and print information
 
@@ -486,10 +511,10 @@ class Worker():
                             )
                         else:
                             self.info_list.put([self.g_ep.value, ep_reward, step, performance, kills, a_count, h_count])
-                            record_fell_ppo(self.g_ep, self.g_ep_r, performance, self.res_queue, t_count, kills,
-                                            victory,
-                                            dead, a_count, h_count, task_var, self.my_jump, self.my_asym)
 
+                            record_fell(self.g_ep, self.g_ep_r, performance, self.res_queue, self.name, t_count, kills,
+                                        victory,
+                                        dead, a_count, h_count, task_var, self.my_jump, self.my_asym)
                         break
                 state_vec = nstate_vec
                 state = new_state
@@ -502,36 +527,24 @@ class Worker():
         self.info_list.put(None)
         self.res_queue.put(None)
 
+def train_agent(base_file, test_results, my_res, new_file, train_metrics, nav_room, nav_object, raw_file, cp_count):
+    gstrat = nav(STATE_SIZE, ACTION_SIZE, HIDDEN_SIZE, H_SIZE)  # global network
 
-def train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_file):
-    """
-    runs a single game
-    :param base_file: file we load from
-    :param test_results: test wins, raw score, preformance
-    :param my_res: preformance for training
-    :param new_file: file we save to
-    :param train_metrics: jump start and asympotic performance queue
-    :param raw_file: file to save episode info to
-    :return:
-    """
-    batch_size = 5
-    n_epochs = 4
-    alpha = 0.0003
-    myshape = np.zeros(STATE_SIZE)
-
-    strategist = Agent(n_actions=ACTION_SIZE, input_dims=myshape.shape, batch_size=batch_size, alpha=alpha,
-                       n_epochs=n_epochs)
-    nav_room = nav(13, 6)
-    nav_object = nav(13, 6)
-
-    nav_room.load_state_dict(torch.load("nav_room.txt"))
-    nav_object.load_state_dict(torch.load("nav_item.txt"))
-    my_jump = mp.Queue()
+    my_jump = mp.Queue()  #
     my_asym = mp.Queue()
     my_info = mp.Queue()
+    l = "Y"
+    stric = True
+    if IS_TEST:
+        l = "Y"
+        stric = True
+    act_net = {}
 
-    strategist.load_weights(base_file)
+    if l == "Y":
+        act_net = torch.load(base_file)
+        gstrat.load_state_dict(act_net, strict=stric)
 
+    opt = SharedAdam(gstrat.parameters(), lr=1e-4, betas=(0.92, 0.999))  # global optimizer
     global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
 
     if IS_TEST:
@@ -539,10 +552,18 @@ def train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_fi
     else:
         print("training")
 
-    worker = Worker(strategist, nav_room, nav_object, global_ep, global_ep_r, res_queue, test_results, my_jump, my_asym,
-                    my_info)
-    worker.run()
+    # parallel training
+
+    workers = [
+        Worker(gstrat, nav_room, nav_object, opt, global_ep, global_ep_r, res_queue, i, act_net, stric, test_results, my_jump, my_asym,
+               my_info)
+        for
+        i in
+        range(cp_count)]
+
+    [w.start() for w in workers]
     res = []  # record episode reward to plot
+
     m_jump = 0
     m_asym = 0
     while True:
@@ -584,80 +605,85 @@ def train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_fi
 
         csvwriter.writerows(myinfo)
     csvfile.close()
+    [w.join() for w in workers]
 
     if not IS_TEST:
-        strategist.save_weights(new_file)
-
+        torch.save(gstrat.state_dict(), new_file)
         my_res2 = np.add(my_res, res)
-
         temp = train_metrics
         temp.append([m_jump, m_asym])
-        # TODO possibly return temp for consistency with fell_a3c.py although both ways work
-        return my_res2
 
-    return my_res
+        return my_res2, temp
+    return my_res, train_metrics
 
 
 if __name__ == "__main__":
-    starting_index = 0
-    num_agents = 2
-    test_ep = 10
+    x = 0
+    rang = 30
+    test_ep = 1000
+    nav_room = nav(13, 6)
+    nav_item = nav(13, 6)
 
-    control = "N"  # input("control Y or N:")
-    testing = "N"  # input("test Y or N:")
+    nav_room.load_state_dict(torch.load("nav_room.txt"))
+    nav_item.load_state_dict(torch.load("nav_item.txt"))
+    control = "Y"  # input("control Y or N:")
     is_load = "N"  # input("continue Y or N:")
-    is_control = False
+    is_a2c = False
     if control == "Y" or control == "y":
-        is_control = True
-    if testing == "Y" or testing == "y":
-        IS_TEST = True
-
-    if IS_TEST:
-        MAX_EP = test_ep
+        IS_CONTROL = True
+    cp_count = 4
+    if is_a2c:
+        cp_count = 1
 
     test_results = mp.Queue()
     my_res = np.zeros([MAX_EP])
     train_metrics = []
-    fname = "ppoboot_"
-    if is_control:
-        fname = "ppocontrol_"
 
-    for ind in range(num_agents):
-        n = ind + starting_index
+    fname = "a2cboot_"
+    if IS_CONTROL:
+        fname = "a2ccontrol_"
+
+    for ind in range(rang):
+        n = ind + x
         f_temp = fname + str(n)
         base_file = f_temp + ".txt"
         new_file = fname + "task5_" + str(n) + ".txt"
         raw_file = f_temp + "raw.csv"
-
+        if not os.path.exists(base_file):
+            print("file:", base_file, "does not exist")
+            break
         print(base_file)
-        my_res = train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_file)
+
+        my_res, train_metrics = train_agent(base_file, test_results, my_res, new_file, train_metrics, nav_room, nav_item, raw_file, cp_count)
 
     IS_TEST = True
+    cp_count = 1
+    MAX_EP = test_ep
 
-    if IS_TEST:
-        MAX_EP = test_ep
     test_results = mp.Queue()
     new_file = "dud.txt"
-    for ind in range(num_agents):
-        n = ind + starting_index
+
+    for ind in range(rang):
+        n = ind + x
         f_temp = fname + str(n)
         base_file = fname + "task5_" + str(n) + ".txt"
         raw_file = f_temp + "rawtest.csv"
-
+        if not os.path.exists(base_file):
+            print("file:", base_file, "does not exist")
+            break
         print(base_file)
-        _ = train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_file)
-    # name of csv file
-    filename = "boot_ppo_task5.csv"
-    outname = "boot_task5_ppo.txt"
-    first_line = "boot\n"
-    if is_control:
-        filename = "control_ppo_task5.csv"
-        outname = "control_task5_ppo.txt"
-        first_line = "control\n"
 
+        _, _ = train_agent(base_file, test_results, my_res, new_file, train_metrics, nav_room, nav_item, raw_file)  # my_jump, my_asym, my_tran)
+    # name of csv file
+    filename = "boot_task5_a2c.csv"
+    outname = "boot_task5_a2c.txt"
+    first_line = "boot\n"
+    if IS_CONTROL:
+        filename = "control_task5_a2c.csv"
+        outname = "control_task5_a2c.txt"
+        first_line = "control\n"
     if is_load == "Y" or is_load == "y":
         with open(filename, 'r') as file:
-
             csvFile = csv.reader(file)
             header = True
             # displaying the contents of the CSV file
@@ -665,7 +691,7 @@ if __name__ == "__main__":
             for lines in csvFile:
                 if lines and header:
                     h = np.asarray(lines, dtype="float64")
-                    num_agents += h[0]
+                    rang += h[0]
                 if lines and not header:
                     l = np.asarray(lines, dtype="float64")
                     my_res = np.add(my_res, l)
@@ -679,7 +705,7 @@ if __name__ == "__main__":
         csvwriter = csv.writer(csvfile)
         head = np.zeros([len(my_res)])
 
-        head[0] = num_agents
+        head[0] = rang
         rows = [head, my_res]
 
         csvwriter.writerows(rows)
@@ -688,7 +714,6 @@ if __name__ == "__main__":
     test_results.put(None)
 
     f = open(outname, "w")
-
     f.write(first_line)
     f.write("wins, raw, pref\n")
     while True:

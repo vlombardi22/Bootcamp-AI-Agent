@@ -6,6 +6,7 @@ import torch
 import numpy as np
 import math
 
+
 # 90 degree angle north
 
 
@@ -47,6 +48,7 @@ def push_and_pull(opt, lnet, gnet, done, s_vec, buf_s, buf_a, buf_r, gamma):
     # pull global parameters
     lnet.load_state_dict(gnet.state_dict())
 
+
 def record_base(global_ep, global_ep_r, ep_r, res_queue, name, enemies, kills, victory,
                 dead, ammo, health, task_var):
     with global_ep.get_lock():
@@ -73,8 +75,9 @@ def record_base(global_ep, global_ep_r, ep_r, res_queue, name, enemies, kills, v
         "| Ep_r: %.2f" % global_ep_r.value, " indiv: %.2f" % ep_r, task
     )
 
+
 def record_fell_ppo(global_ep, global_ep_r, ep_r, res_queue, enemies, kills, victory,
-                dead, ammo, health, task_var, p_queue, f_queue):
+                    dead, ammo, health, task_var, p_queue, f_queue):
     test = False
     test2 = False
     with global_ep.get_lock():
@@ -83,7 +86,6 @@ def record_fell_ppo(global_ep, global_ep_r, ep_r, res_queue, enemies, kills, vic
             test = True
         if global_ep.value >= 80:
             test2 = True
-
 
     with global_ep_r.get_lock():
         if global_ep_r.value == 0.:
@@ -109,7 +111,6 @@ def record_fell_ppo(global_ep, global_ep_r, ep_r, res_queue, enemies, kills, vic
         "health:", health,
         "| Ep_r: %.2f" % global_ep_r.value, " indiv: %.2f" % ep_r, task
     )
-
 
 
 def record_fell(global_ep, global_ep_r, ep_r, res_queue, name, enemies, kills, victory,
@@ -135,7 +136,7 @@ def record_fell(global_ep, global_ep_r, ep_r, res_queue, name, enemies, kills, v
         p_queue.put(ep_r)
     if test2:
         f_queue.put(ep_r)
-        #f2_queue.put(ep_rr)
+        # f2_queue.put(ep_rr)
 
     # if test2:
     #    my_p2.put(ep_r)
@@ -154,6 +155,7 @@ def record_fell(global_ep, global_ep_r, ep_r, res_queue, name, enemies, kills, v
         "health:", health,
         "| Ep_r: %.2f" % global_ep_r.value, " indiv: %.2f" % ep_r, task
     )
+
 
 def record_boot(global_ep, global_ep_r, ep_r, res_queue, name, enemies, kills, victory,
                 dead, ammo, health, s_count, task_var, global_kills, global_health, global_ammo, MAX_EP):
@@ -207,7 +209,6 @@ def helper(player, combat, state):
             if get_dist(o, player) < 80:
                 check = False
     return check
-
 
 
 def in_center2(p):
@@ -636,17 +637,17 @@ def break_enemy(player, ob_list, enemies, p_coord):
     ang_90 = True
     ang_135 = True
     ang_180 = True
-    can_kill = False # does the player have enough ammo to defeat an enemy
+    can_kill = False  # does the player have enough ammo to defeat an enemy
 
-    nav_enemy = [] # enemy navigation vector
-    strat_enemy = [] # enemy strategy vector
+    nav_enemy = []  # enemy navigation vector
+    strat_enemy = []  # enemy strategy vector
     combat = 0  # 0 nothing, 1 attack, 2 left, 3 right, 4 m left, 5 m right
-    w_0 = 0 # extra width or offset when not in door frame
-    min_dist = 10000 # min dist of targeted enemy overrides
-    min_dist2 = 10000 # closest enemy min dist used for when no enemy is sighted
-    m_enemy = None # closest sighted enemy
-    targ_enemy = None # closest enemy for navigation skill
-    m_targ = None # easiest enemy to hit
+    w_0 = 0  # extra width or offset when not in door frame
+    min_dist = 10000  # min dist of targeted enemy overrides
+    min_dist2 = 10000  # closest enemy min dist used for when no enemy is sighted
+    m_enemy = None  # closest sighted enemy
+    targ_enemy = None  # closest enemy for navigation skill
+    m_targ = None  # easiest enemy to hit
     ammo = player['ammo']  # current player ammo
     firing = False  # do we have a clear line of fire
     tir = False  # target in room (tir)
@@ -671,17 +672,17 @@ def break_enemy(player, ob_list, enemies, p_coord):
                     can_kill = True
 
                 if in_door(e, player):
-                    angle_0 = False # is there an enemy in front of you
+                    angle_0 = False  # is there an enemy in front of you
 
                     if gunner(e, player, 0.0, 40 + w_0):
 
-                        barr = ob_help(ob_list, player, dist, 0.0) # check for pillars
+                        barr = ob_help(ob_list, player, dist, 0.0)  # check for pillars
                         if barr:
-                            if gunner(e, player, 0.0, 18): # shoot at target in front
+                            if gunner(e, player, 0.0, 18):  # shoot at target in front
                                 combat = 1
                                 m_targ = e
                                 firing = True
-                        else: # controls moving left and right to get a better shot
+                        else:  # controls moving left and right to get a better shot
                             ang, sign = get_angle(e, player, 0.0)
 
                             check3 = True
@@ -704,16 +705,16 @@ def break_enemy(player, ob_list, enemies, p_coord):
 
                                 if sign < 1 and check3:
                                     combat = 5
-                                    if not check4: # move right
+                                    if not check4:  # move right
                                         angle_0 = True  # we don't want to repeat
                                         ang_90 = True
-                                elif sign == 1 and check5: # move left
+                                elif sign == 1 and check5:  # move left
 
                                     combat = 4
                                     if not check4:
                                         angle_0 = True  # we don't want to repeat
                                         ang_90 = True
-                    if ang_45 and not firing: # checks alternate angles
+                    if ang_45 and not firing:  # checks alternate angles
                         w_1 = 30 + w_0
                         if angle_0:
                             w_1 = 18
@@ -727,43 +728,49 @@ def break_enemy(player, ob_list, enemies, p_coord):
                             combat = 3
                             ang_45 = False
                             m_targ = e
-                        if ang_45 and ang_90 and gunner(e, player, 90.0, 30 + w_0) and ob_help(ob_list, player, dist, 90.0):
+                        if ang_45 and ang_90 and gunner(e, player, 90.0, 30 + w_0) and ob_help(ob_list, player, dist,
+                                                                                               90.0):
                             combat = 2
                             ang_90 = False
                             m_targ = e
-                        if ang_45 and ang_90 and gunner(e, player, -90.0, 30 + w_0) and ob_help(ob_list, player, dist, -90.0):
+                        if ang_45 and ang_90 and gunner(e, player, -90.0, 30 + w_0) and ob_help(ob_list, player, dist,
+                                                                                                -90.0):
                             combat = 3
                             ang_90 = False
                             m_targ = e
-                        if ang_45 and ang_90 and ang_135 and gunner(e, player, 135.0, 30 + w_0) and ob_help(ob_list, player, dist,
-                                                                                                  135.0):
+                        if ang_45 and ang_90 and ang_135 and gunner(e, player, 135.0, 30 + w_0) and ob_help(ob_list,
+                                                                                                            player,
+                                                                                                            dist,
+                                                                                                            135.0):
                             combat = 2
                             ang_135 = False
                             m_targ = e
-                        if ang_45 and ang_90 and ang_135 and gunner(e, player, -135.0, 30 + w_0) and ob_help(ob_list, player,
-                                                                                                   dist,
-                                                                                                   -135.0):
+                        if ang_45 and ang_90 and ang_135 and gunner(e, player, -135.0, 30 + w_0) and ob_help(ob_list,
+                                                                                                             player,
+                                                                                                             dist,
+                                                                                                             -135.0):
                             combat = 3
                             ang_135 = False
                             m_targ = e
-                        if ang_45 and ang_90 and ang_135 and ang_180 and gunner(e, player, 180.0, 30 + w_0) and ob_help(ob_list,
-                                                                                                          player,
-                                                                                                          dist, 180.0):
+                        if ang_45 and ang_90 and ang_135 and ang_180 and gunner(e, player, 180.0, 30 + w_0) and ob_help(
+                                ob_list,
+                                player,
+                                dist, 180.0):
                             combat = 2
                             ang_180 = False
                             m_targ = e
 
-    if p_coord != 1: # move towards center room for default nav ig not in it
+    if p_coord != 1:  # move towards center room for default nav ig not in it
         targ_coord = 1
-    elif not targ_enemy: # set targ_coord to 0 if no enemies
+    elif not targ_enemy:  # set targ_coord to 0 if no enemies
         targ_coord = 0
-    else: # move towards target_coord for navigation
+    else:  # move towards target_coord for navigation
         targ_coord = tracker(targ_enemy)
 
-    if not m_enemy: # if no sighted enemies
+    if not m_enemy:  # if no sighted enemies
         nav_enemy = [0.0, 0.0, 10000.0]
         strat_enemy = [0.0, 0.0, 0.0, -1.0, 0.0]
-    else: # sighted enemies.
+    else:  # sighted enemies.
         nav_enemy = [float(m_enemy['x_position']), float(m_enemy['y_position']), min_dist]
         if m_targ:
             angle, _ = get_angle(m_targ, player, 0.0)
@@ -814,8 +821,6 @@ def breaker(state, obst_list):
         sensor_vec2), e_count, combat, clip, med, targ_coord, tir, can_kill
 
 
-
-
 def to_border(player, target):
     """
     takes you to an outer room
@@ -823,8 +828,6 @@ def to_border(player, target):
     :param target: target coord
     :return: act that will take you to an outer room
     """
-
-
 
     my_act = np.dtype('int64').type(3)
     angle = player['angle']
