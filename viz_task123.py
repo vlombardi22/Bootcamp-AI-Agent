@@ -12,7 +12,7 @@ from Agents import Agents
 class SailonViz:
 
     def __init__(self, use_mock, use_novel, level, use_img, seed, difficulty,
-                 path="env_generator/envs/", use_gui=False, use_seed=False):
+                 path="env_generator/envs/", use_gui=False, use_seed=False, task=1):
 
         # Attempt to clear out previous ini file
         try:
@@ -29,6 +29,7 @@ class SailonViz:
         self.difficulty = difficulty
         self.path = path
         self.use_seed = use_seed
+
         self.total_target_count = 0
         self.max_target_count = 2
         # Declare parameters
@@ -42,7 +43,7 @@ class SailonViz:
         self.time = None
         self.time_delta = 1.0 / 35.0
         self.last_health = None
-
+        self.task = task
         # REAL NOVLETY VALS REMOVE IN PUBLIC
         self.enemy_num = 4
         self.lives = 4
@@ -87,7 +88,12 @@ class SailonViz:
         game = vzd.DoomGame()
         package_path = ''  # self.path + "vizdoom/"
         game.load_config(package_path + 'basic.cfg')
-        game.set_doom_scenario_path(package_path + "phase_4_combat.wad")
+        scenario = "phase_4_combat.wad"
+        if task == 2:
+            scenario = "phase_4_ammo.wad"
+        if task == 3:
+            scenario = "phase_4_health.wad"
+        game.set_doom_scenario_path(package_path + scenario)
 
         # Set in game limit
         game.set_episode_timeout(self.step_limit)
@@ -147,7 +153,7 @@ class SailonViz:
         # Decode action
         action = self.actions[action]
 
-        # Set agent behaviour before making the action (which calls an ingame update)
+        # Set agent behavoiur before making the action (which calls an ingame update)
         # Returns a string array, use as commands in vizdoom
         comands = self.Agents.act(self.get_state())
         for command in comands:
@@ -162,49 +168,17 @@ class SailonViz:
         # Get game state information
         observation = self.get_state()
         current_targets = 0
-        current_targets = current_targets + len(observation['enemies'])
-        #if current_targets < 0:
-        #    print("wat")
-        #current_targets = current_targets - (int(self.tick / 50))
+        if self.task == 1:
+            current_targets = current_targets + len(observation['enemies'])
+        elif self.task == 2:
+            current_targets = current_targets + len(observation['items']['ammo'])
+        elif self.task == 3:
+            current_targets = current_targets + len(observation['items']['health'])
         self.total_target_count = self.total_target_count + current_targets
-        #self.performance = (self.step_limit - self.tick) / self.step_limit
         target_by_time = current_targets * (self.step_limit - self.tick)
         self.performance = 1 - (self.total_target_count + target_by_time) / (self.step_limit * self.max_target_count)
         self.performance = round(self.performance, 6)
 
-
-        # Calculate performance
-        # See new formula in word doc
-
-        """
-        current_health = 0
-        if self.level == 208:
-            for enemy in observation['enemies']:
-                current_health = current_health + enemy['health']
-            if len(observation['enemies']) < self.enemy_num:
-                self.enemy_num = len(observation['enemies'])
-            if len(observation['enemies']) > self.enemy_num:
-                self.lives = self.lives - 1
-                self.enemy_num = len(observation['enemies'])
-            current_health = current_health + self.lives * 10
-        else:
-            for enemy in observation['enemies']:
-                current_health = current_health + enemy['health']
-        """
-
-        #self.performance = (self.step_limit - self.tick) / self.step_limit
-
-        ''' Performance v1, not quite right
-        if self.is_done():
-            health = 0
-            for enemy in observation['enemies']:
-                health = health + enemy['health']
-            self.total_enemy_health = self.total_enemy_health + (health * (self.step_limit - self.tick + 1))
-        else:
-            for enemy in observation['enemies']:
-                self.total_enemy_health = self.total_enemy_health + enemy['health']
-        self.performance = 1 - self.total_enemy_health / (self.step_limit * self.max_enemy_health)
-        '''
 
         victory = False
         dead = False
@@ -214,9 +188,9 @@ class SailonViz:
             #self.performance = 0.0
             dead = True
 
-        # Special check to see if all monsters died (needed to prevent aditional tick)
-        if len(observation['enemies']) == 0:
-            done = True
+        ## Special check to see if all monsters died (needed to prevent aditional tick)
+        if len(observation['enemies']) == 0 and self.task == 1:
+            self.done = True
             victory = True
 
         # Update last obs
@@ -240,7 +214,8 @@ class SailonViz:
             done = True
 
         # Special check to see if all monsters died (needed to prevent aditional tick)
-        if len(observation['enemies']) == 0:
+
+        if len(observation['enemies']) == 0 and self.task == 1:
             done = True
 
         return done
@@ -272,8 +247,14 @@ class SailonViz:
     def get_top_down(self, episode):
         import matplotlib.pyplot as plt
         # Make a random plot...
-
+        # self.helper()
         fig2 = plt.figure()
+
+        # test = np.zeros([480, 640, 3], dtype='uint8')
+        # if test is not None:
+
+        #    cv2.imshow('ViZDoom Automap Buffer', test)
+        #    print("wat")
 
         fig2.add_subplot(111)
 
@@ -317,15 +298,29 @@ class SailonViz:
         # draw the figure first...
         plt.legend(loc='center right', handlelength=0)
 
+        # temp = [6, 1, 4, 4, 8, 4, 6, 3, 5, 8]
+        # plt.plot(temp)
         plt.ylabel('Y-axis')
         plt.xlabel('X-axis')
-
+        # self.helper()
         fig2.canvas.draw()
-
+        # self.helper()
         # Now we can save it to a numpy array.
         data = np.fromstring(fig2.canvas.tostring_rgb(), dtype=np.uint8, sep='')
         data = data.reshape(fig2.canvas.get_width_height()[::-1] + (3,))
+        # print(data)
 
+        # wat = data
+        # print(data[0][0][0])
+
+        # print(type(wat))
+        # print(np.shape(data))
+        # print(type(data))
+        # print(type(data[0][0][0]))
+        # exit()
+        # plt.cla()
+        # plt.clf()
+        plt.savefig("ep_" + str(episode) + ".png")
         plt.close()
 
         return data
@@ -438,10 +433,8 @@ class SailonViz:
         self.performance = None
         self.last_obs = None
         self.total_enemy_health = 0
-        self.total_target_count = 0
-
         self.time = time.time()
-
+        self.total_target_count = 0
         # Start a new episode
         self.game.new_episode()
 
