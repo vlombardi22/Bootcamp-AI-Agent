@@ -153,7 +153,7 @@ class SailonViz:
         # Decode action
         action = self.actions[action]
 
-        # Set agent behavoiur before making the action (which calls an ingame update)
+        # Set agent behaviour before making the action (which calls an ingame update)
         # Returns a string array, use as commands in vizdoom
         comands = self.Agents.act(self.get_state())
         for command in comands:

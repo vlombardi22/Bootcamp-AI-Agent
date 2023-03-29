@@ -158,13 +158,13 @@ def record_fell(global_ep, global_ep_r, ep_r, res_queue, name, enemies, kills, v
 
 
 def record_boot(global_ep, global_ep_r, ep_r, res_queue, name, enemies, kills, victory,
-                dead, ammo, health, s_count, task_var, global_kills, global_health, global_ammo, MAX_EP):
+                dead, ammo, health, task_var, global_kills, global_health, global_ammo, MAX_EP):
     test = False
     with global_ep.get_lock():
         global_ep.value += 1
-        if global_ep.value > MAX_EP - 500:
+        if global_ep.value > MAX_EP - 200:
             test = True
-        if MAX_EP <= 500:
+        if MAX_EP <= 800:
             test = True
     with global_ep_r.get_lock():
         if global_ep_r.value == 0.:
