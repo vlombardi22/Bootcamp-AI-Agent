@@ -112,8 +112,6 @@ class TestHandler:
         #    self.test = self.test1
         """
         if self.use_seed:
-
-
             self.information = self.test.reset(self.seed_list[episode])
         else:
             self.information = self.test.reset()

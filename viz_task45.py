@@ -86,7 +86,7 @@ class SailonViz:
         game = vzd.DoomGame()
         package_path = ''  # self.path + "vizdoom/"
         game.load_config(package_path + 'basic.cfg')
-        game.set_doom_scenario_path(package_path + "phase_4_test.wad")  # change targets too !!!!!!!!!!!!!!
+        game.set_doom_scenario_path(package_path + "phase_4_test.wad")
 
         # Set in game limit
         game.set_episode_timeout(self.step_limit)
@@ -162,11 +162,8 @@ class SailonViz:
         observation = self.get_state()
         current_targets = 0
         current_targets = current_targets + len(observation['enemies'])
-        # if current_targets < 0:
-        #    print("wat")
-        # current_targets = current_targets - (int(self.tick / 50))
+
         self.total_target_count = self.total_target_count + current_targets
-        # self.performance = (self.step_limit - self.tick) / self.step_limit
         target_by_time = current_targets * (self.step_limit - self.tick)
         self.performance = 1 - (self.total_target_count + target_by_time) / (self.step_limit * self.max_target_count)
         self.performance = round(self.performance, 6)
@@ -287,8 +284,6 @@ class SailonViz:
         plt.xlabel('X-axis')
 
         fig2.canvas.draw()
-        my_str = "foo_" + str(episode) + ".png"
-        plt.savefig(my_str)
         # Now we can save it to a numpy array.
         data = np.fromstring(fig2.canvas.tostring_rgb(), dtype=np.uint8, sep='')
         data = data.reshape(fig2.canvas.get_width_height()[::-1] + (3,))
@@ -336,7 +331,6 @@ class SailonViz:
         # Start formatting the data
         data = {'enemies': [], 'items': {'health': [], 'ammo': [], 'trap': [], 'obstacle': []}}
         for object in state.objects:
-            # print(object.name)
             # Base entity information
             if self.level != 53:
                 entity = {'id': int(object.id),
@@ -413,7 +407,6 @@ class SailonViz:
         self.game.new_episode()
 
         # Docs suggest putting it here too
-        # self.game.set_seed(self.seed)
         if self.use_seed:
             self.game.set_seed(seed)
 

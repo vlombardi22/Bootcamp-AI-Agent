@@ -81,7 +81,7 @@ class SailonViz:
         conv = {'easy': 1, 'medium': 2, 'hard': 3}
         difficulty_str = str(conv[self.difficulty])
 
-        # Decide on agent behvoiur here
+        # Decide on agent behaviour here
         self.Agents = Agents(self.level, self.difficulty, self.use_mock)
 
         # Make and load game parameters here
@@ -126,7 +126,7 @@ class SailonViz:
         game.add_available_game_variable(vzd.vizdoom.USER42)
         game.add_available_game_variable(vzd.vizdoom.USER43)
 
-        # Send level speicfic info here (filtered in wad to select right novelty)
+        # Send level specific info here (filtered in wad to select right novelty)
         game.add_game_args("+set novelty " + str(self.level))
         game.add_game_args("+set difficulty_n " + str(difficulty_str))
         game.add_game_args("+set use_new_spawn" + str(self.use_new_spawn))
@@ -185,10 +185,9 @@ class SailonViz:
         done = self.is_done()
         if self.game.is_player_dead():
             done = True
-            #self.performance = 0.0
             dead = True
 
-        ## Special check to see if all monsters died (needed to prevent aditional tick)
+        # Special check to see if all monsters died (needed to prevent aditional tick)
         if len(observation['enemies']) == 0 and self.task == 1:
             self.done = True
             victory = True
@@ -202,7 +201,7 @@ class SailonViz:
         # Get game state information
         observation = self.get_state()
 
-        # Check if game is done naturally (includes tick limit nativelly)
+        # Check if game is done naturally (includes tick limit natively)
         done = self.game.is_episode_finished()
 
         # Check if player died
@@ -213,7 +212,7 @@ class SailonViz:
         if self.Agents.special_exit_flag:
             done = True
 
-        # Special check to see if all monsters died (needed to prevent aditional tick)
+        # Special check to see if all monsters died (needed to prevent additional tick)
 
         if len(observation['enemies']) == 0 and self.task == 1:
             done = True
@@ -247,14 +246,7 @@ class SailonViz:
     def get_top_down(self, episode):
         import matplotlib.pyplot as plt
         # Make a random plot...
-        # self.helper()
         fig2 = plt.figure()
-
-        # test = np.zeros([480, 640, 3], dtype='uint8')
-        # if test is not None:
-
-        #    cv2.imshow('ViZDoom Automap Buffer', test)
-        #    print("wat")
 
         fig2.add_subplot(111)
 
@@ -298,28 +290,14 @@ class SailonViz:
         # draw the figure first...
         plt.legend(loc='center right', handlelength=0)
 
-        # temp = [6, 1, 4, 4, 8, 4, 6, 3, 5, 8]
-        # plt.plot(temp)
         plt.ylabel('Y-axis')
         plt.xlabel('X-axis')
-        # self.helper()
+
         fig2.canvas.draw()
-        # self.helper()
         # Now we can save it to a numpy array.
         data = np.fromstring(fig2.canvas.tostring_rgb(), dtype=np.uint8, sep='')
         data = data.reshape(fig2.canvas.get_width_height()[::-1] + (3,))
-        # print(data)
 
-        # wat = data
-        # print(data[0][0][0])
-
-        # print(type(wat))
-        # print(np.shape(data))
-        # print(type(data))
-        # print(type(data[0][0][0]))
-        # exit()
-        # plt.cla()
-        # plt.clf()
         plt.savefig("ep_" + str(episode) + ".png")
         plt.close()
 
@@ -364,7 +342,6 @@ class SailonViz:
         # Start formatting the data
         data = {'enemies': [], 'items': {'health': [], 'ammo': [], 'trap': [], 'obstacle': []}}
         for object in state.objects:
-            # print(object.name)
             # Base entity information
             if self.level != 53:
                 entity = {'id': int(object.id),

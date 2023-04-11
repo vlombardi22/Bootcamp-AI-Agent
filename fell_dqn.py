@@ -21,7 +21,16 @@ IS_TEST = False
 class CWrapper:
 
     def __init__(self, novelty, difficulty, my_res, my_jump, my_asym, my_info, seed=97):
-        # Parameters
+        """
+
+        :param novelty:
+        :param difficulty:
+        :param my_res:
+        :param my_jump:
+        :param my_asym:
+        :param my_info:
+        :param seed:
+        """
 
         self.seed = seed
         self.my_res = my_res
@@ -57,17 +66,31 @@ class CWrapper:
         self.observation_space = np.zeros(28)
 
     def wipe(self, my_info, testing):
+        """
+        Resets data
+        :param my_info:
+        :param testing:
+        :return:
+        """
         self.my_info = my_info
         if testing:
             self.metrics = [0.0, 0.0, 0.0]
 
     def analyze(self):
+        """
+        analysis
+        :return:
+        """
         self.metrics[1] = float(self.metrics[1] / TEST_EPS)
         self.metrics[2] = float(self.metrics[2] / TEST_EPS)
         return self.metrics
 
     def transform(self, state):
-
+        """
+        processes objects
+        :param state: game state
+        :return: sensor vec
+        """
         # Add player
         obs_state = [round((state['player']['x_position'] + 512) / 1024, 2),
                      round((state['player']['y_position'] + 512) / 1024, 2), round(state['player']['angle'] / 360, 2),
@@ -106,11 +129,20 @@ class CWrapper:
         return obs_state
 
     def set_seed(self, use_seed):
+        """
+        sets use seed
+        :param use_seed:
+        :return:
+        """
         self.ep_count = 0
         self.env.set_seed(use_seed)
 
     def step(self, action):
-
+        """
+        game step
+        :param action:
+        :return:
+        """
         obs, pref, done, victory, dead = self.env.test.step(self.action_trans(action))
         task = self.env.test.get_task()
 
@@ -185,6 +217,10 @@ class CWrapper:
         return self.transform(obs), reward, done, {}
 
     def reset(self):
+        """
+        Resets game mod
+        :return:
+        """
         self.last_health = None
         self.step_count = 0
         self.ep_reward = 0
@@ -201,6 +237,11 @@ class CWrapper:
         return self.transform(ob)
 
     def action_trans(self, action):
+        """
+        turns actions into label
+        :param action:
+        :return:
+        """
         action_name = ""
         # if action == 0:
         #    action_name = 'nothing'
@@ -222,6 +263,11 @@ class CWrapper:
 
     # player shoot enemy
     def check_shoot(self, state):
+        """
+        checks shoot item
+        :param state:
+        :return:
+        """
         shoot = False
         for ind, val in enumerate(state['enemies']):
             angle, sign = self.get_angle(val, state['player'])
@@ -238,6 +284,12 @@ class CWrapper:
 
     # Utility function for getting angle from B-direction to A
     def get_angle(self, player, enemy):
+        """
+        get angle
+        :param player:
+        :param enemy:
+        :return:
+        """
         pl_x = player['x_position']
         pl_y = player['y_position']
 
