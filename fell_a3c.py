@@ -16,12 +16,12 @@ from viz_task45 import SailonViz as SViz
 import random
 import os
 import csv
-
+import sys
 os.environ["OMP_NUM_THREADS"] = "4"
 
 UPDATE_GLOBAL_ITER = 20
 GAMMA = 0.97  # 0.60  # 0.97
-MAX_EP = 1000
+MAX_EP = 20
 HIDDEN_SIZE = 32  # 128
 H_SIZE = 16  # 64
 
@@ -30,6 +30,7 @@ IS_TEST = False
 
 STATE_SIZE = 25
 ACTION_SIZE = 4
+TASK_5 = False
 
 
 
@@ -57,7 +58,7 @@ class Worker(mp.Process):
         self.name = 'w%02i' % name
         self.g_ep, self.g_ep_r, self.res_queue = global_ep, global_ep_r, res_queue
         self.gstrat, self.opt = strategist, opt
-        self.lstrat = nav(STATE_SIZE, ACTION_SIZE, HIDDEN_SIZE, ACTION_SIZE)
+        self.lstrat = nav(STATE_SIZE, ACTION_SIZE, HIDDEN_SIZE, H_SIZE)
         self.nav_room = nav_room
         self.nav_object = nav_object
         self.info_list = info_list
@@ -86,9 +87,14 @@ class Worker(mp.Process):
             self.seed_list = [np.random.randint(0, 1000) for i in range(MAX_EP)]
 
         use_mock = 0
-        self.use_novel = 1
+        #self.use_seed = 0
+        self.use_novel = 0
+        level = 0
 
-        level = 208
+        if TASK_5:
+            self.use_novel = 1
+
+            level = 208
         difficulty = 'easy'
 
         self.game = SViz(use_mock, self.use_novel, level, False, seed, difficulty, use_seed=self.use_seed)
@@ -502,12 +508,14 @@ class Worker(mp.Process):
                             episode += 1
 
                             pref_total += performance
-
+                            task = "task4"
+                            if TASK_5:
+                                task = "task5"
                             print(
                                 "Ep:", episode, "enemies:", t_count, "kills:", kills, "victory:", victory,
                                 "dead:", dead, "ammo:", a_count,
                                 "health:", h_count,
-                                "| Ep_r: %.2f" % (pref_total / episode), " indiv: %.2f" % performance, "task5"
+                                "| Ep_r: %.2f" % (pref_total / episode), " indiv: %.2f" % performance, task
                             )
                         else:
                             self.info_list.put([self.g_ep.value, ep_reward, step, performance, kills, a_count, h_count])
@@ -618,17 +626,29 @@ def train_agent(base_file, test_results, my_res, new_file, train_metrics, nav_ro
 
 
 if __name__ == "__main__":
+    n = len(sys.argv)
+    control = "Y"
+    isa2c = "N"
+    t_dir = "4"
+    if n == 4:
+        control = sys.argv[1]
+        isa2c = sys.argv[2]
+        t_dir = sys.argv[3]
+    else:
+        print("invalid arguments need control, is_a2c")
+
     x = 0
-    rang = 30
-    test_ep = 1000
+    rang = 2
+    test_ep = 10
     nav_room = nav(13, 6)
     nav_item = nav(13, 6)
 
     nav_room.load_state_dict(torch.load("nav_room.txt"))
     nav_item.load_state_dict(torch.load("nav_item.txt"))
-    control = "Y"  # input("control Y or N:")
     is_load = "N"  # input("continue Y or N:")
     is_a2c = False
+    if isa2c == "Y":
+        is_a2c = True
     if control == "Y" or control == "y":
         IS_CONTROL = True
     cp_count = 4
@@ -639,16 +659,26 @@ if __name__ == "__main__":
     my_res = np.zeros([MAX_EP])
     train_metrics = []
 
-    fname = "a2cboot_"
+    fname = "boot_"
     if IS_CONTROL:
-        fname = "a2ccontrol_"
+        fname = "control_"
+    if is_a2c:
+        fname = fname + "a2c_"
+    tdir = "task4"
+    if t_dir == "5":
+        TASK_5 = True
+        tdir = "task5"
+    fname2 = tdir + "/" + fname
+    fname = "tasks123/" +fname
 
     for ind in range(rang):
         n = ind + x
-        f_temp = fname + str(n)
+        f_temp = fname +"task123_" + str(n)
+        f_temp2 = fname2 + tdir + str(n)
         base_file = f_temp + ".txt"
-        new_file = fname + "task5_" + str(n) + ".txt"
-        raw_file = f_temp + "raw.csv"
+        new_file = fname2 + tdir +"_" + str(n) + ".txt"
+        raw_file = f_temp2 + "raw.csv"
+
         if not os.path.exists(base_file):
             print("file:", base_file, "does not exist")
             break
@@ -665,23 +695,30 @@ if __name__ == "__main__":
 
     for ind in range(rang):
         n = ind + x
-        f_temp = fname + str(n)
-        base_file = fname + "task5_" + str(n) + ".txt"
+        f_temp = fname2 + str(n)
+        base_file = fname2 + tdir +"_" + str(n) + ".txt"
         raw_file = f_temp + "rawtest.csv"
+
+
         if not os.path.exists(base_file):
             print("file:", base_file, "does not exist")
             break
         print(base_file)
 
-        _, _ = train_agent(base_file, test_results, my_res, new_file, train_metrics, nav_room, nav_item, raw_file)  # my_jump, my_asym, my_tran)
+        _, _ = train_agent(base_file, test_results, my_res, new_file, train_metrics, nav_room, nav_item, raw_file, cp_count)  # my_jump, my_asym, my_tran)
     # name of csv file
-    filename = "boot_task5_a2c.csv"
-    outname = "boot_task5_a2c.txt"
+    filename = "boot_" + tdir + "_a2c.csv"
+    outname = "boot_"+ tdir +"_a2c.txt"
     first_line = "boot\n"
     if IS_CONTROL:
-        filename = "control_task5_a2c.csv"
-        outname = "control_task5_a2c.txt"
+        filename = "control_" + tdir + "_a2c.csv"
+        outname = "control_" + tdir + "_a2c.txt"
         first_line = "control\n"
+    if is_a2c:
+        filename = "a2c_" + filename
+        outname = "a2c_" + outname
+    filename = "results/" + filename
+    outname = "results/" + outname
     if is_load == "Y" or is_load == "y":
         with open(filename, 'r') as file:
             csvFile = csv.reader(file)

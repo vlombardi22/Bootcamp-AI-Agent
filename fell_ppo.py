@@ -7,18 +7,18 @@ from ppo_util import Agent
 
 import numpy as np
 from viz_task45 import SailonViz as SViz
-
+import sys
 import random
 import csv
 
 UPDATE_GLOBAL_ITER = 20
-MAX_EP = 100
+MAX_EP = 20
 
 IS_TEST = False
 
 STATE_SIZE = 25
 ACTION_SIZE = 4
-
+TASK_5 = False
 
 class Worker():
     def __init__(self, strategist, nav_room, nav_object, global_ep, global_ep_r, res_queue, test_results, my_jump,
@@ -56,9 +56,16 @@ class Worker():
                             {"x_position": -180.0, "y_position": 0}, {"x_position": 0, "y_position": -180.0}]
 
         seed = 97
+
+
         use_mock = 0
-        use_novel = 1
-        level = 208
+        use_novel = 0
+        level = 0
+
+        if TASK_5:
+            use_novel = 1
+
+            level = 208
         difficulty = 'easy'
 
         self.seed_list = []
@@ -70,6 +77,8 @@ class Worker():
             np.random.seed(seed)
 
             self.seed_list = [np.random.randint(0, 1000) for i in range(MAX_EP)]
+
+
 
         self.game = SViz(use_mock, use_novel, level, False, seed, difficulty, use_seed=self.use_seed)
 
@@ -477,12 +486,14 @@ class Worker():
                             episode += 1
 
                             pref_total += performance
-
+                            task = "task4"
+                            if TASK_5:
+                                task = "task5"
                             print(
                                 "Ep:", episode, "enemies:", t_count, "kills:", kills, "victory:", victory,
                                 "dead:", dead, "ammo:", a_count,
                                 "health:", h_count,
-                                "| Ep_r: %.2f" % (pref_total / episode), " indiv: %.2f" % performance, "task5"
+                                "| Ep_r: %.2f" % (pref_total / episode), " indiv: %.2f" % performance, task
                             )
                         else:
                             self.info_list.put([self.g_ep.value, ep_reward, step, performance, kills, a_count, h_count])
@@ -503,7 +514,7 @@ class Worker():
         self.res_queue.put(None)
 
 
-def train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_file):
+def train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_file, bdir, tdir):
     """
     runs a single game
     :param base_file: file we load from
@@ -530,7 +541,7 @@ def train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_fi
     my_asym = mp.Queue()
     my_info = mp.Queue()
 
-    strategist.load_weights(base_file)
+    strategist.load_weights(base_file, bdir)
 
     global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
 
@@ -586,7 +597,7 @@ def train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_fi
     csvfile.close()
 
     if not IS_TEST:
-        strategist.save_weights(new_file)
+        strategist.save_weights(new_file, tdir)
 
         my_res2 = np.add(my_res, res)
 
@@ -599,11 +610,20 @@ def train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_fi
 
 
 if __name__ == "__main__":
+
+    n = len(sys.argv)
+    control = "Y"
+    t_dir = "4"
+    if n == 3:
+        control = sys.argv[1]
+        t_dir = sys.argv[2]
+    else:
+        print("invalid arguments need control, task")
+
     starting_index = 0
     num_agents = 2
     test_ep = 10
 
-    control = "N"  # input("control Y or N:")
     testing = "N"  # input("test Y or N:")
     is_load = "N"  # input("continue Y or N:")
     is_control = False
@@ -621,16 +641,22 @@ if __name__ == "__main__":
     fname = "ppoboot_"
     if is_control:
         fname = "ppocontrol_"
+    tdir = "task4"
+    if t_dir == "5":
+        TASK_5 = True
+        tdir = "task5"
+    fname2 = tdir + "/" + fname
 
     for ind in range(num_agents):
         n = ind + starting_index
-        f_temp = fname + str(n)
-        base_file = f_temp + ".txt"
-        new_file = fname + "task5_" + str(n) + ".txt"
-        raw_file = f_temp + "raw.csv"
 
-        print(base_file)
-        my_res = train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_file)
+        f_temp = fname +"task123_" + str(n)
+        f_temp2 = fname2 + tdir + str(n)
+        base_file = f_temp + ".txt"
+        new_file = fname + tdir +"_" + str(n) + ".txt"
+        raw_file = f_temp2 + "raw.csv"
+
+        my_res = train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_file, "tasks123", tdir)
 
     IS_TEST = True
 
@@ -640,21 +666,23 @@ if __name__ == "__main__":
     new_file = "dud.txt"
     for ind in range(num_agents):
         n = ind + starting_index
-        f_temp = fname + str(n)
-        base_file = fname + "task5_" + str(n) + ".txt"
-        raw_file = f_temp + "rawtest.csv"
+
+        f_temp = fname2 + str(n)
+        base_file = fname + tdir +"_" + str(n) + ".txt"
+        raw_file = f_temp + tdir +"_rawtest.csv"
 
         print(base_file)
-        _ = train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_file)
+        _ = train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_file, tdir, tdir)
     # name of csv file
-    filename = "boot_ppo_task5.csv"
-    outname = "boot_task5_ppo.txt"
+    filename = "boot_" + tdir + "_ppo.csv"
+    outname = "boot_" + tdir + "_ppo.txt"
     first_line = "boot\n"
     if is_control:
-        filename = "control_ppo_task5.csv"
-        outname = "control_task5_ppo.txt"
+        filename = "control_ppo_" + tdir +".csv"
+        outname = "control_ppo_" + tdir + ".txt"
         first_line = "control\n"
-
+    filename = "results/" + filename
+    outname = "results/" + outname
     if is_load == "Y" or is_load == "y":
         with open(filename, 'r') as file:
 

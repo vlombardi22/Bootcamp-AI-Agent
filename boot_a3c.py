@@ -17,14 +17,15 @@ from viz_task123 import SailonViz as SViz
 import random
 import os
 import csv
+import sys
 
 os.environ["OMP_NUM_THREADS"] = "4"
 
 UPDATE_GLOBAL_ITER = 20
-GAMMA = 0.97  # 0.60  # 0.97
-MAX_EP = 2000
-HIDDEN_SIZE = 32  # 128
-H_SIZE = 16  # 64
+GAMMA = 0.97
+MAX_EP = 100
+HIDDEN_SIZE = 32
+H_SIZE = 16
 
 IS_CONTROL = False
 IS_TEST = False
@@ -33,10 +34,10 @@ STATE_SIZE = 25
 ACTION_SIZE = 4
 
 
-
 class Worker(mp.Process):
 
-    def __init__(self, strategist, nav_room, nav_object, opt, global_ep, global_ep_r, res_queue, name, f, l, stric, global_kills,
+    def __init__(self, strategist, nav_room, nav_object, opt, global_ep, global_ep_r, res_queue, name, f, l, stric,
+                 global_kills,
                  global_health, global_ammo, test_results, info_list):
         """
         :param strategist: strategy net
@@ -60,7 +61,7 @@ class Worker(mp.Process):
         self.name = 'w%02i' % name
         self.g_ep, self.g_ep_r, self.res_queue = global_ep, global_ep_r, res_queue
         self.gstrat, self.opt = strategist, opt
-        self.lstrat = nav(STATE_SIZE, ACTION_SIZE, HIDDEN_SIZE, ACTION_SIZE)
+        self.lstrat = nav(STATE_SIZE, ACTION_SIZE, HIDDEN_SIZE, H_SIZE)
         self.nav_room = nav_room
         self.nav_object = nav_object
         self.info_list = info_list
@@ -90,15 +91,17 @@ class Worker(mp.Process):
             self.seed_list = [np.random.randint(0, 1000) for i in range(MAX_EP)]
 
         use_mock = 0
-        self.use_novel = 1
+        self.use_novel = 0
 
-        level = 208
+        level = 0
         difficulty = 'easy'
 
-        self.game_combat = SViz(use_mock, self.use_novel, level, False, seed, difficulty, use_seed=self.use_seed, task=1)
-        self.game_ammo = SViz(use_mock, self.use_novel, level, False, seed, difficulty, use_seed=self.use_seed, task=2) # ammo
-        self.game_health = SViz(use_mock, self.use_novel, level, False, seed, difficulty, use_seed=self.use_seed, task=3) # health
-
+        self.game_combat = SViz(use_mock, self.use_novel, level, False, seed, difficulty, use_seed=self.use_seed,
+                                task=1)
+        self.game_ammo = SViz(use_mock, self.use_novel, level, False, seed, difficulty, use_seed=self.use_seed,
+                              task=2)  # ammo
+        self.game_health = SViz(use_mock, self.use_novel, level, False, seed, difficulty, use_seed=self.use_seed,
+                                task=3)  # health
 
     def helm(self, nav_vec, state, combat, patrol_targ, clip, med, act, targ_coord, tir, p_coord, player, ammo):
         """
@@ -265,7 +268,7 @@ class Worker(mp.Process):
         reload_index = STATE_SIZE - 2
         combat_index = STATE_SIZE - 3
         heal_index = STATE_SIZE - 4
-        task_var = 0.0
+        task_var = 1.0
         pref_list = np.zeros([MAX_EP])  # performance
 
         raw_list = np.zeros([MAX_EP])  # raw reward scores
@@ -274,7 +277,7 @@ class Worker(mp.Process):
         turn = 0
         seed = 0
         pref_total = 0.0
-        if self.name == "w01":  # or self.name == "w02":
+        if self.name == "w01":
             task_var = 1.0
             turn = 3  # 6
         if self.name == "w02":
@@ -296,10 +299,10 @@ class Worker(mp.Process):
                     game = self.game_ammo
                     task_var = 2.0
 
-                    if turn > 7:  # 12: # 12
+                    if turn > 7:
                         task_var = 3.0
                         game = self.game_health
-                        if turn > 11:  # 18:
+                        if turn > 11:
                             turn = 0
                             task_var = 1.0
 
@@ -326,8 +329,6 @@ class Worker(mp.Process):
                     turn = 8  # 3
                     task_var = 3.0
                     game = self.game_health
-
-
 
             state = game.reset(seed)
             pillar = state['items']['obstacle']  # the pillar does not move so we only need to get it once
@@ -442,7 +443,7 @@ class Worker(mp.Process):
                 else:
                     rotate_count = 0
 
-                if rotate_count >= 10:  # if the agent starts rotating to much mark it as stuck
+                if rotate_count >= 10:  # if the agent starts rotating too much mark it as stuck
                     stuck = True
 
                 # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -587,12 +588,6 @@ class Worker(mp.Process):
                                         dead, a_count, h_count, task_var, self.g_k, self.g_h, self.g_a,
                                         MAX_EP)
 
-                            record_boot(self.g_ep, self.g_ep_r, performance, self.res_queue, self.name, t_count,
-                                        kills,
-                                        victory,
-                                        dead, a_count, h_count, task_var, self.g_k, self.g_h, self.g_a,
-                                        MAX_EP)
-
 
                         break
                 state_vec = nstate_vec
@@ -607,10 +602,8 @@ class Worker(mp.Process):
         self.res_queue.put(None)
 
 
-
 def train_agent(base_file, test_results, my_res, new_file, nav_room, nav_object, raw_file, cp_count):
     gstrat = nav(STATE_SIZE, ACTION_SIZE, HIDDEN_SIZE, H_SIZE)  # global network
-
 
     my_info = mp.Queue()
     l = "N"
@@ -637,7 +630,8 @@ def train_agent(base_file, test_results, my_res, new_file, nav_room, nav_object,
     # parallel training
 
     workers = [
-        Worker(gstrat, nav_room, nav_object, opt, global_ep, global_ep_r, res_queue, i, act_net, l, stric, global_kills, global_health, global_ammo, test_results,
+        Worker(gstrat, nav_room, nav_object, opt, global_ep, global_ep_r, res_queue, i, act_net, l, stric, global_kills,
+               global_health, global_ammo, test_results,
                my_info)
         for
         i in
@@ -651,9 +645,6 @@ def train_agent(base_file, test_results, my_res, new_file, nav_room, nav_object,
             res.append(r)
         else:
             break
-
-
-
 
     myinfo = []
     while True:
@@ -670,29 +661,43 @@ def train_agent(base_file, test_results, my_res, new_file, nav_room, nav_object,
     csvfile.close()
     [w.join() for w in workers]
 
-    m_kills = 250
-    m_items = 150
+    m_kills = -1  # 250
+    m_items = -1  # 150
 
-
-    if not IS_TEST and (IS_CONTROL or (global_kills.value > m_kills and global_health.value > m_items and global_ammo.value > m_items)):
+    if not IS_TEST and (IS_CONTROL or (
+            global_kills.value > m_kills and global_health.value > m_items and global_ammo.value > m_items)):
         torch.save(gstrat.state_dict(), new_file)
         my_res2 = np.add(my_res, res)
         return True, my_res2
 
     return False, my_res
 
+
 if __name__ == "__main__":
-    x = 0
-    rang = 30
-    test_ep = 1000
+
+    # total arguments
+    n = len(sys.argv)
+    control = "Y"
+    isa2c = "N"
+    if n == 3:
+        control = sys.argv[1]
+        isa2c = sys.argv[2]
+    else:
+        print("invalid arguments need control, is_a2c")
+
+    start_index = 0
+    agent_count = 2
+    test_ep = 10
     nav_room = nav(13, 6)
     nav_item = nav(13, 6)
 
     nav_room.load_state_dict(torch.load("nav_room.txt"))
     nav_item.load_state_dict(torch.load("nav_item.txt"))
-    control = "Y"  # input("control Y or N:")
-    is_load = "N"  # input("continue Y or N:")
+
+    is_load = "N"
     is_a2c = False
+    if isa2c == "Y":
+        is_a2c = True
     if control == "Y" or control == "y":
         IS_CONTROL = True
     cp_count = 4
@@ -706,19 +711,20 @@ if __name__ == "__main__":
     fname = "boot_"
     if IS_CONTROL:
         fname = "control_"
-
-    for ind in range(rang):
-        n = ind + x
+    if is_a2c:
+        fname = fname + "a2c_"
+    fname = "tasks123/" + fname
+    for ind in range(agent_count):
+        n = ind + start_index
         f_temp = fname + str(n)
         base_file = f_temp + ".txt"
         new_file = fname + "task123_" + str(n) + ".txt"
         raw_file = f_temp + "raw.csv"
-        if not os.path.exists(base_file):
-            print("file:", base_file, "does not exist")
-            break
+
         print(base_file)
         while True:
-            temp, my_res = train_agent(base_file, test_results, my_res, new_file, nav_room, nav_item, raw_file, cp_count)
+            temp, my_res = train_agent(base_file, test_results, my_res, new_file, nav_room, nav_item, raw_file,
+                                       cp_count)
             if temp:
                 break
 
@@ -729,8 +735,8 @@ if __name__ == "__main__":
     test_results = mp.Queue()
     new_file = "dud.txt"
 
-    for ind in range(rang):
-        n = ind + x
+    for ind in range(agent_count):
+        n = ind + start_index
         f_temp = fname + str(n)
         base_file = fname + "task123_" + str(n) + ".txt"
         raw_file = f_temp + "rawtest.csv"
@@ -739,7 +745,7 @@ if __name__ == "__main__":
             break
         print(base_file)
 
-        _, _ = train_agent(base_file, test_results, my_res, new_file, nav_room, nav_item, raw_file)  # my_jump, my_asym, my_tran)
+        _, _ = train_agent(base_file, test_results, my_res, new_file, nav_room, nav_item, raw_file, cp_count)
     # name of csv file
     filename = "boot_task123.csv"
     outname = "boot_task123.txt"
@@ -748,6 +754,11 @@ if __name__ == "__main__":
         filename = "control_task123.csv"
         outname = "control_task123.txt"
         first_line = "control\n"
+    if is_a2c:
+        filename = "a2c_" + filename
+        outname = "a2c_" + outname
+    filename = "results/" + filename
+    outname = "results/" + outname
     if is_load == "Y" or is_load == "y":
         with open(filename, 'r') as file:
             csvFile = csv.reader(file)
@@ -757,7 +768,7 @@ if __name__ == "__main__":
             for lines in csvFile:
                 if lines and header:
                     h = np.asarray(lines, dtype="float64")
-                    rang += h[0]
+                    agent_count += h[0]
                 if lines and not header:
                     l = np.asarray(lines, dtype="float64")
                     my_res = np.add(my_res, l)
@@ -771,7 +782,7 @@ if __name__ == "__main__":
         csvwriter = csv.writer(csvfile)
         head = np.zeros([len(my_res)])
 
-        head[0] = rang
+        head[0] = agent_count
         rows = [head, my_res]
 
         csvwriter.writerows(rows)
