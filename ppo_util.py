@@ -134,15 +134,15 @@ class Agent():
         self.actor.load_checkpoint()
         self.critic.load_checkpoint()
 
-    def save_weights(self, name):
-        actw = "act_" + name
-        critw = "crit_" + name
+    def save_weights(self, name, tdir):
+        actw = tdir +"/act_" + name
+        critw = tdir +"/crit_" + name
         self.actor.save_weights(actw)
         self.critic.save_weights(critw)
 
-    def load_weights(self, name):
-        actw = "act_" + name
-        critw = "crit_" + name
+    def load_weights(self, name, tdir):
+        actw = tdir + "/act_" + name
+        critw = tdir + "/crit_" + name
         self.actor.load_weights(actw)
         self.critic.load_weights(critw)
 

@@ -3,7 +3,6 @@
 # import random
 
 from viz_task45 import SailonViz as SViz
-
 import numpy as np
 
 
@@ -12,7 +11,7 @@ class TestHandler:
     # Init function, accepts connection and address info
     def __init__(self, seed_list, domain: str = 'cartpole', novelty: int = 0, difficulty: str = 'easy',
                  seed: int = 123, trial_novelty: int = 0, day_offset: int = 0, use_img: bool = False,
-                 path: str = "env_generator/envs/", use_gui: bool = False, check: bool = False):
+                 path: str = "env_generator/envs/", use_gui: bool = False, check: bool = False, tdir="4"):
 
         # Set parameters
         self.seed = seed
@@ -27,8 +26,11 @@ class TestHandler:
         self.path = path
         self.use_gui = use_gui
         self.use_mock = 0
-        self.use_novel = 1
-        self.level = 208
+        self.use_novel = 0
+        self.level = 0
+        if tdir == "5":
+            self.use_novel = 1
+            self.level = 208
 
 
         self.seed_list = seed_list

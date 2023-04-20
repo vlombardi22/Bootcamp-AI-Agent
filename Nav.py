@@ -1,4 +1,6 @@
-
+"""
+Class for navigation Agent
+"""
 import torch
 import torch.nn as nn
 
@@ -12,6 +14,13 @@ from doom_util import set_init
 class Net(nn.Module):
 
     def __init__(self, s_dim, a_dim, H_1=64, H_2=32):
+        """
+
+        :param s_dim: state dimension
+        :param a_dim: action dimension
+        :param H_1: Hidden size 1
+        :param H_2: Hidden Size 2
+        """
         super(Net, self).__init__()
         self.s_dim = s_dim
         self.a_dim = a_dim
@@ -31,6 +40,11 @@ class Net(nn.Module):
         self.distribution = torch.distributions.Categorical
 
     def forward(self, x):
+        """
+
+        :param x: input
+        :return: logits and values
+        """
         act1 = F.leaky_relu(self.actor1(x))
         crit1 = F.leaky_relu(self.critic1(x))
         act2 = F.leaky_relu(self.actor2(act1))
@@ -42,6 +56,11 @@ class Net(nn.Module):
         return logits, values
 
     def choose_action(self, s):
+        """
+        chooses actions
+        :param s: state
+        :return:
+        """
         self.eval()
         logits, _ = self.forward(s)
         prob = F.softmax(logits, dim=1).data
@@ -49,6 +68,13 @@ class Net(nn.Module):
         return m.sample().numpy()[0]
 
     def loss_func(self, s, a, v_t):
+        """
+        loss function
+        :param s:
+        :param a:
+        :param v_t:
+        :return:
+        """
         self.train()
         logits, values = self.forward(s)
         td = v_t - values

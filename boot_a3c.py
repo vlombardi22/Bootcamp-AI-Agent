@@ -719,7 +719,7 @@ if __name__ == "__main__":
         f_temp = fname + str(n)
         base_file = f_temp + ".txt"
         new_file = fname + "task123_" + str(n) + ".txt"
-        raw_file = f_temp + "raw.csv"
+        raw_file = f_temp + "task123_raw.csv"
 
         print(base_file)
         while True:
@@ -739,7 +739,7 @@ if __name__ == "__main__":
         n = ind + start_index
         f_temp = fname + str(n)
         base_file = fname + "task123_" + str(n) + ".txt"
-
+        raw_file = f_temp + "task123_raw.csv"
         if not os.path.exists(base_file):
             print("file:", base_file, "does not exist")
             break

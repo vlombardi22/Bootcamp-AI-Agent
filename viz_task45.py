@@ -80,13 +80,18 @@ class SailonViz:
         difficulty_str = str(conv[self.difficulty])
 
         # Decide on agent behaviour here
+
+
         self.Agents = Agents(self.level, self.difficulty, self.use_mock)
 
         # Make and load game parameters here
         game = vzd.DoomGame()
         package_path = ''  # self.path + "vizdoom/"
         game.load_config(package_path + 'basic.cfg')
-        game.set_doom_scenario_path(package_path + "phase_4_test.wad")
+        if self.level == 208:
+            game.set_doom_scenario_path(package_path + "phase_4_test5.wad")
+        else:
+            game.set_doom_scenario_path(package_path + "phase_4_test4.wad")
 
         # Set in game limit
         game.set_episode_timeout(self.step_limit)

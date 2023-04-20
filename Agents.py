@@ -55,7 +55,7 @@ class Agents:
 
         return
 
-    # Run agent behavoir here
+    # Run agent behavior here
     def act(self, state):
         # Used for certain novelties
         self.tick_counter = self.tick_counter + 1
@@ -366,7 +366,7 @@ class Agents:
     def check_enemies(self, state, commands):
         # From enemy
         for ind, val in enumerate(state['enemies']):
-            # If an enemy is not shooting, dont mess with anything
+            # If an enemy is not shooting, don't mess with anything
             if commands[ind][1] != SHOOT:
                 continue
 

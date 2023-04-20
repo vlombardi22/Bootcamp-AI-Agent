@@ -1,6 +1,6 @@
 # https://github.com/keras-rl/keras-rl/blob/master/examples/dqn_cartpole.py
 import numpy as np
-
+import sys
 import random
 from test_handler import TestHandler
 import csv
@@ -20,7 +20,7 @@ IS_TEST = False
 # Wrapper class for keras-rl dqn learning
 class CWrapper:
 
-    def __init__(self, novelty, difficulty, my_res, my_jump, my_asym, my_info, seed=97):
+    def __init__(self, novelty, difficulty, my_res, my_jump, my_asym, my_info, seed=97, tdir="4"):
         """
 
         :param novelty:
@@ -60,7 +60,7 @@ class CWrapper:
         self.seed_list = [np.random.randint(0, 1000) for i in range(TEST_EPS)]
 
         self.env = TestHandler(self.seed_list, domain='vizdoom', novelty=novelty, trial_novelty=novelty,
-                               difficulty=difficulty, seed=self.seed, check=check)
+                               difficulty=difficulty, seed=self.seed, check=check, tdir=tdir)
 
         self.action_space = range(8)
         self.observation_space = np.zeros(28)
@@ -164,7 +164,7 @@ class CWrapper:
 
         if self.last_health is not None:
             if health < self.last_health:
-                reward += 25  # 200
+                reward += 25
 
         if e_count < self.e_count:
             reward += 200
@@ -179,7 +179,6 @@ class CWrapper:
             reward += 200
             if task == 2:
                 reward += 50
-        # print(reward)
 
         self.ep_reward += reward
         if done:
@@ -243,8 +242,6 @@ class CWrapper:
         :return:
         """
         action_name = ""
-        # if action == 0:
-        #    action_name = 'nothing'
         if action == 0:
             action_name = 'left'
         elif action == 1:
@@ -328,6 +325,12 @@ class CWrapper:
 
 
 if __name__ == "__main__":
+    n = len(sys.argv)
+    t_dir = "4"
+    if n == 2:
+        t_dir = sys.argv[2]
+    else:
+        print("invalid arguments need control, task")
     train = True
     IS_TEST = False
     my_res = []
@@ -339,9 +342,15 @@ if __name__ == "__main__":
     train_metrics = []
     my_results = []
 
-    rang = 10
-    is_load = "N"
-    env = CWrapper(200, 'easy', my_res, jump, asympt, my_info, seed=97)
+    rang = 30
+    is_load_csv = "N"
+    tdir = "task4"
+    if t_dir == "5":
+        TASK_5 = True
+        tdir = "task5"
+
+    env = CWrapper(200, 'easy', my_res, jump, asympt, my_info, seed=97,tdir=t_dir)
+
     nb_actions = len(env.action_space) - 1
     step_length = 2000  # 1500
 
@@ -367,13 +376,13 @@ if __name__ == "__main__":
 
         # Ctrl + C. 150000
         # 3000000
-        my_str = "vizdoom_task123" + str(i) + ".h5f"
+        my_str = "tasks123/dqn_vizdoom_task123" + str(i) + ".h5f"
 
         dqn.load_weights(my_str)
         dqn.fit(env, nb_steps=targ_steps, visualize=False, verbose=2, nb_max_episode_steps=step_length)
-        my_str2 = "vizdoom_task5" + str(i) + ".h5f"
-        f3 = "vizdoom_task5" + str(i) + "raw.csv"
-        with open(f3, 'w', newline='') as csvfile:
+        my_str2 = tdir + "/dqn_vizdoom_" + tdir + str(i) + ".h5f"
+        raw_file = tdir +"/dqn_vizdoom_" + tdir + str(i) + "raw.csv"
+        with open(raw_file, 'w', newline='') as csvfile:
             # creating a csv writer object
             csvwriter = csv.writer(csvfile)
 
@@ -411,12 +420,12 @@ if __name__ == "__main__":
                        target_model_update=1e-2, policy=policy)
 
         dqn.compile(Adam(learning_rate=1e-3), metrics=['mae'])
-        my_str = "vizdoom_task5" + str(i) + ".h5f"
-        f3 = "vizdoom_task5" + str(i) + "rawtest.csv"
+        my_str = tdir + "/dqn_vizdoom_" + tdir + str(i) + ".h5f"
+        raw_file = tdir + "/dqn_vizdoom_" + tdir + str(i) + "rawtest.csv"
         dqn.load_weights(my_str)
 
         t = dqn.test(env, nb_episodes=TEST_EPS, visualize=False)
-        with open(f3, 'w', newline='') as csvfile:
+        with open(raw_file, 'w', newline='') as csvfile:
             # creating a csv writer object
             csvwriter = csv.writer(csvfile)
 
@@ -427,9 +436,9 @@ if __name__ == "__main__":
         my_info = []
         env.wipe(my_info, True)
 
-    filename = "dqn_task5.csv"
+    filename = "results/dqn_" + tdir + ".csv"
 
-    if is_load == "Y" or is_load == "y":
+    if is_load_csv == "Y" or is_load_csv == "y":
         with open(filename, 'r') as file:
             csvFile = csv.reader(file)
             header = True
@@ -458,7 +467,8 @@ if __name__ == "__main__":
         csvwriter.writerows(rows)
     csvfile.close()
     print(len(my_res))
-    f = open("myout_dqn_task5.txt", "w")
+    fname = "results/myout_dqn_" + tdir + ".txt"
+    f = open(fname, "w")
     f.write("dqn\n")
     for r in my_results:
         mystr = str(r) + "\n"

@@ -20,6 +20,7 @@ STATE_SIZE = 25
 ACTION_SIZE = 4
 TASK_5 = False
 
+
 class Worker():
     def __init__(self, strategist, nav_room, nav_object, global_ep, global_ep_r, res_queue, test_results, my_jump,
                  my_asym, info_list):
@@ -57,16 +58,14 @@ class Worker():
 
         seed = 97
 
-
         use_mock = 0
         use_novel = 0
         level = 0
-
+        difficulty = 'easy'
         if TASK_5:
             use_novel = 1
 
             level = 208
-        difficulty = 'easy'
 
         self.seed_list = []
         self.use_seed = False
@@ -77,8 +76,6 @@ class Worker():
             np.random.seed(seed)
 
             self.seed_list = [np.random.randint(0, 1000) for i in range(MAX_EP)]
-
-
 
         self.game = SViz(use_mock, use_novel, level, False, seed, difficulty, use_seed=self.use_seed)
 
@@ -265,7 +262,7 @@ class Worker():
             pillar = state['items']['obstacle']  # the pillar does not move so we only need to get it once
 
             state_vec, nav_vec, e_count, combat, clip, med, targ_coord, tir, can_kill = breaker(state,
-                                                                                            pillar)  # initial state_vec
+                                                                                                pillar)  # initial state_vec
 
             step = 0  # current step
             kills = 0  # kills
@@ -650,10 +647,10 @@ if __name__ == "__main__":
     for ind in range(num_agents):
         n = ind + starting_index
 
-        f_temp = fname +"task123_" + str(n)
+        f_temp = fname + "task123_" + str(n)
         f_temp2 = fname2 + tdir + str(n)
         base_file = f_temp + ".txt"
-        new_file = fname + tdir +"_" + str(n) + ".txt"
+        new_file = fname + tdir + "_" + str(n) + ".txt"
         raw_file = f_temp2 + "raw.csv"
 
         my_res = train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_file, "tasks123", tdir)
@@ -668,8 +665,8 @@ if __name__ == "__main__":
         n = ind + starting_index
 
         f_temp = fname2 + str(n)
-        base_file = fname + tdir +"_" + str(n) + ".txt"
-        raw_file = f_temp + tdir +"_rawtest.csv"
+        base_file = fname + tdir + "_" + str(n) + ".txt"
+        raw_file = f_temp + tdir + "_rawtest.csv"
 
         print(base_file)
         _ = train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_file, tdir, tdir)
@@ -678,7 +675,7 @@ if __name__ == "__main__":
     outname = "boot_" + tdir + "_ppo.txt"
     first_line = "boot\n"
     if is_control:
-        filename = "control_ppo_" + tdir +".csv"
+        filename = "control_ppo_" + tdir + ".csv"
         outname = "control_ppo_" + tdir + ".txt"
         first_line = "control\n"
     filename = "results/" + filename

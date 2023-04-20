@@ -20,10 +20,10 @@ import sys
 os.environ["OMP_NUM_THREADS"] = "4"
 
 UPDATE_GLOBAL_ITER = 20
-GAMMA = 0.97  # 0.60  # 0.97
+GAMMA = 0.97
 MAX_EP = 20
-HIDDEN_SIZE = 32  # 128
-H_SIZE = 16  # 64
+HIDDEN_SIZE = 32
+H_SIZE = 16
 
 IS_CONTROL = False
 IS_TEST = False
@@ -87,7 +87,6 @@ class Worker(mp.Process):
             self.seed_list = [np.random.randint(0, 1000) for i in range(MAX_EP)]
 
         use_mock = 0
-        #self.use_seed = 0
         self.use_novel = 0
         level = 0
 
@@ -538,7 +537,7 @@ class Worker(mp.Process):
 def train_agent(base_file, test_results, my_res, new_file, train_metrics, nav_room, nav_object, raw_file, cp_count):
     gstrat = nav(STATE_SIZE, ACTION_SIZE, HIDDEN_SIZE, H_SIZE)  # global network
 
-    my_jump = mp.Queue()  #
+    my_jump = mp.Queue()
     my_asym = mp.Queue()
     my_info = mp.Queue()
     l = "Y"
@@ -645,7 +644,7 @@ if __name__ == "__main__":
 
     nav_room.load_state_dict(torch.load("nav_room.txt"))
     nav_item.load_state_dict(torch.load("nav_item.txt"))
-    is_load = "N"  # input("continue Y or N:")
+    is_load = "N"
     is_a2c = False
     if isa2c == "Y":
         is_a2c = True
@@ -673,7 +672,7 @@ if __name__ == "__main__":
 
     for ind in range(rang):
         n = ind + x
-        f_temp = fname +"task123_" + str(n)
+        f_temp = fname + "task123_" + str(n)
         f_temp2 = fname2 + tdir + str(n)
         base_file = f_temp + ".txt"
         new_file = fname2 + tdir +"_" + str(n) + ".txt"
@@ -707,12 +706,12 @@ if __name__ == "__main__":
 
         _, _ = train_agent(base_file, test_results, my_res, new_file, train_metrics, nav_room, nav_item, raw_file, cp_count)  # my_jump, my_asym, my_tran)
     # name of csv file
-    filename = "boot_" + tdir + "_a2c.csv"
-    outname = "boot_"+ tdir +"_a2c.txt"
+    filename = "boot_" + tdir + ".csv"
+    outname = "boot_"+ tdir + ".txt"
     first_line = "boot\n"
     if IS_CONTROL:
-        filename = "control_" + tdir + "_a2c.csv"
-        outname = "control_" + tdir + "_a2c.txt"
+        filename = "control_" + tdir + ".csv"
+        outname = "control_" + tdir + ".txt"
         first_line = "control\n"
     if is_a2c:
         filename = "a2c_" + filename

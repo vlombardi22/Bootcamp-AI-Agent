@@ -119,12 +119,11 @@ def record_fell(global_ep, global_ep_r, ep_r, res_queue, name, enemies, kills, v
     test2 = False
     with global_ep.get_lock():
         global_ep.value += 1
-        if global_ep.value < 200:
+        if global_ep.value < 4:
             test = True
-        if global_ep.value >= 800:
+        if global_ep.value >= 6:
             test2 = True
-        # if global_ep.value >= 5:#500:
-        #    test2
+
 
     with global_ep_r.get_lock():
         if global_ep_r.value == 0.:
@@ -136,11 +135,7 @@ def record_fell(global_ep, global_ep_r, ep_r, res_queue, name, enemies, kills, v
         p_queue.put(ep_r)
     if test2:
         f_queue.put(ep_r)
-        # f2_queue.put(ep_rr)
 
-    # if test2:
-    #    my_p2.put(ep_r)
-    # my_p2.put(ep_r)
     res_queue.put(global_ep_r.value)
     task = "combat"
 
@@ -162,9 +157,10 @@ def record_boot(global_ep, global_ep_r, ep_r, res_queue, name, enemies, kills, v
     test = False
     with global_ep.get_lock():
         global_ep.value += 1
-        if global_ep.value > MAX_EP - 200:
+
+        if global_ep.value > (MAX_EP - 20):
             test = True
-        if MAX_EP <= 800:
+        if MAX_EP <= 80:
             test = True
     with global_ep_r.get_lock():
         if global_ep_r.value == 0.:
