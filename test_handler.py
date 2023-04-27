@@ -74,7 +74,7 @@ class TestHandler:
             np.random.seed(self.seed)
             r = np.random.randint(1, 4)
             if r == 1:
-                self.test = self.test1  # self.test.get_state(initial=True)
+                self.test = self.test1
             elif r == 2:
                 self.test = self.test2
             else:

@@ -1,6 +1,6 @@
-# https://github.com/keras-rl/keras-rl/blob/master/examples/dqn_cartpole.py
+
 import numpy as np
-import sys
+
 import random
 from test_handler import TestHandler
 import csv
@@ -12,7 +12,7 @@ from rl.agents.dqn import DQNAgent
 from rl.policy import BoltzmannQPolicy
 from rl.memory import SequentialMemory
 
-TRAIN_EPS = 1000
+TRAIN_EPS = 1000  #2000
 TEST_EPS = 1000
 IS_TEST = False
 
@@ -20,21 +20,10 @@ IS_TEST = False
 # Wrapper class for keras-rl dqn learning
 class CWrapper:
 
-    def __init__(self, novelty, difficulty, my_res, my_jump, my_asym, my_info, seed=97, tdir="4"):
-        """
-
-        :param novelty:
-        :param difficulty:
-        :param my_res:
-        :param my_jump:
-        :param my_asym:
-        :param my_info:
-        :param seed:
-        """
-
+    def __init__(self, novelty, difficulty, my_res, my_jump, my_asym, my_info, seed=97):
+        # Parameters
         self.seed = seed
         self.my_res = my_res
-
         self.metrics = [0.0, 0.0, 0.0]
         self.kills = 0
         check = False
@@ -60,43 +49,26 @@ class CWrapper:
         self.seed_list = [np.random.randint(0, 1000) for i in range(TEST_EPS)]
 
         self.env = TestHandler(self.seed_list, domain='vizdoom', novelty=novelty, trial_novelty=novelty,
-                               difficulty=difficulty, seed=self.seed, check=check, tdir=tdir)
+                               difficulty=difficulty, seed=self.seed, check=check)
 
         self.action_space = range(8)
         self.observation_space = np.zeros(28)
 
     def wipe(self, my_info, testing):
-        """
-        Resets data
-        :param my_info:
-        :param testing:
-        :return:
-        """
         self.my_info = my_info
         if testing:
             self.metrics = [0.0, 0.0, 0.0]
 
     def analyze(self):
-        """
-        analysis
-        :return:
-        """
         self.metrics[1] = float(self.metrics[1] / TEST_EPS)
         self.metrics[2] = float(self.metrics[2] / TEST_EPS)
         return self.metrics
 
     def transform(self, state):
-        """
-        processes objects
-        :param state: game state
-        :return: sensor vec
-        """
         # Add player
         obs_state = [round((state['player']['x_position'] + 512) / 1024, 2),
                      round((state['player']['y_position'] + 512) / 1024, 2), round(state['player']['angle'] / 360, 2),
                      round(state['player']['health']), round(state['player']['ammo'])]
-
-
 
         # Add enemies
         for i in range(3):
@@ -129,20 +101,11 @@ class CWrapper:
         return obs_state
 
     def set_seed(self, use_seed):
-        """
-        sets use seed
-        :param use_seed:
-        :return:
-        """
         self.ep_count = 0
         self.env.set_seed(use_seed)
 
     def step(self, action):
-        """
-        game step
-        :param action:
-        :return:
-        """
+
         obs, pref, done, victory, dead = self.env.test.step(self.action_trans(action))
         task = self.env.test.get_task()
 
@@ -154,11 +117,11 @@ class CWrapper:
         h_count = len(obs['items']['health'])
         a_count = len(obs['items']['ammo'])
         e_count = len(obs['enemies'])
-
         if dead:
             reward = -300
         elif victory:
             reward = 500
+
         else:
             reward = -1
 
@@ -183,7 +146,6 @@ class CWrapper:
         self.ep_reward += reward
         if done:
             if not IS_TEST:
-
                 p = pref
                 if self.step_count > 0:
                     p = self.my_pref * 0.99 + pref * 0.01
@@ -216,12 +178,9 @@ class CWrapper:
         return self.transform(obs), reward, done, {}
 
     def reset(self):
-        """
-        Resets game mod
-        :return:
-        """
         self.last_health = None
         self.step_count = 0
+
         self.ep_reward = 0
         self.env.reset(self.ep_count)
         self.ep_count += 1
@@ -236,11 +195,6 @@ class CWrapper:
         return self.transform(ob)
 
     def action_trans(self, action):
-        """
-        turns actions into label
-        :param action:
-        :return:
-        """
         action_name = ""
         if action == 0:
             action_name = 'left'
@@ -260,11 +214,6 @@ class CWrapper:
 
     # player shoot enemy
     def check_shoot(self, state):
-        """
-        checks shoot item
-        :param state:
-        :return:
-        """
         shoot = False
         for ind, val in enumerate(state['enemies']):
             angle, sign = self.get_angle(val, state['player'])
@@ -281,12 +230,6 @@ class CWrapper:
 
     # Utility function for getting angle from B-direction to A
     def get_angle(self, player, enemy):
-        """
-        get angle
-        :param player:
-        :param enemy:
-        :return:
-        """
         pl_x = player['x_position']
         pl_y = player['y_position']
 
@@ -325,34 +268,23 @@ class CWrapper:
 
 
 if __name__ == "__main__":
-    n = len(sys.argv)
-    t_dir = "4"
-    if n == 2:
-        t_dir = sys.argv[2]
-    else:
-        print("invalid arguments need control, task")
     train = True
     IS_TEST = False
-    my_res = []
+    my_q = []
 
     jump = []
     asympt = []
     my_info = []
 
     train_metrics = []
+
     my_results = []
 
-    rang = 30
-    is_load_csv = "N"
-    tdir = "task4"
-    if t_dir == "5":
-        TASK_5 = True
-        tdir = "task5"
-
-    env = CWrapper(200, 'easy', my_res, jump, asympt, my_info, seed=97,tdir=t_dir)
-
+    rang = 10
+    is_load = "N"
+    env = CWrapper(200, 'easy', my_q, jump, asympt, my_info, seed=97)
     nb_actions = len(env.action_space) - 1
-    step_length = 2000  # 1500
+    step_length = 2000
 
     targ_steps = step_length * TRAIN_EPS
 
@@ -376,13 +308,13 @@ if __name__ == "__main__":
 
         # Ctrl + C. 150000
         # 3000000
-        my_str = "tasks123/dqn_vizdoom_task123" + str(i) + ".h5f"
+        my_str = "vizdoom_task123" + str(i) + ".h5f"
 
         dqn.load_weights(my_str)
         dqn.fit(env, nb_steps=targ_steps, visualize=False, verbose=2, nb_max_episode_steps=step_length)
-        my_str2 = tdir + "/dqn_vizdoom_" + tdir + str(i) + ".h5f"
-        raw_file = tdir +"/dqn_vizdoom_" + tdir + str(i) + "raw.csv"
-        with open(raw_file, 'w', newline='') as csvfile:
+        my_str2 = "vizdoom_task5" + str(i) + ".h5f"
+        f3 = "vizdoom_task5" + str(i) + "raw.csv"
+        with open(f3, 'w', newline='') as csvfile:
             # creating a csv writer object
             csvwriter = csv.writer(csvfile)
 
@@ -417,27 +349,25 @@ if __name__ == "__main__":
         env.set_seed(True)
         dqn = DQNAgent(model=model, nb_actions=nb_actions, memory=memory, nb_steps_warmup=100,
                        target_model_update=1e-2, policy=policy)
-
         dqn.compile(Adam(learning_rate=1e-3), metrics=['mae'])
-        my_str = tdir + "/dqn_vizdoom_" + tdir + str(i) + ".h5f"
-        raw_file = tdir + "/dqn_vizdoom_" + tdir + str(i) + "rawtest.csv"
+        my_str = "vizdoom_task5" + str(i) + ".h5f"
+        f3 = "vizdoom_task5" + str(i) + "rawtest.csv"
         dqn.load_weights(my_str)
 
         t = dqn.test(env, nb_episodes=TEST_EPS, visualize=False)
-        with open(raw_file, 'w', newline='') as csvfile:
+        with open(f3, 'w', newline='') as csvfile:
             # creating a csv writer object
             csvwriter = csv.writer(csvfile)
 
             csvwriter.writerows(my_info)
         csvfile.close()
-
         my_results.append(env.analyze())
         my_info = []
         env.wipe(my_info, True)
 
-    filename = "results/dqn_" + tdir + ".csv"
+    filename = "dqn_task5.csv"
 
-    if is_load_csv == "Y" or is_load_csv == "y":
+    if is_load == "Y" or is_load == "y":
         with open(filename, 'r') as file:
             csvFile = csv.reader(file)
             header = True
@@ -449,7 +379,7 @@ if __name__ == "__main__":
                     rang += h[0]
                 if lines and not header:
                     l = np.asarray(lines, dtype="float64")
-                    my_res = np.add(my_res, l)
+                    my_q = np.add(my_q, l)
 
                 header = False
 
@@ -458,16 +388,15 @@ if __name__ == "__main__":
     with open(filename, 'w', newline='') as csvfile:
         # creating a csv writer object
         csvwriter = csv.writer(csvfile)
-        head = np.zeros([len(my_res)])
+        head = np.zeros([len(my_q)])
 
         head[0] = rang
-        rows = [head, my_res]
+        rows = [head, my_q]
 
         csvwriter.writerows(rows)
     csvfile.close()
-    print(len(my_res))
-    fname = "results/myout_dqn_" + tdir + ".txt"
-    f = open(fname, "w")
+    print(len(my_q))
+    f = open("myout_dqn_task5.txt", "w")
     f.write("dqn\n")
     for r in my_results:
         mystr = str(r) + "\n"

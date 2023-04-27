@@ -30,8 +30,6 @@ def record_fell(global_ep, global_ep_r, ep_r, res_queue, name, enemies, kills, v
             test = True
         if global_ep.value >= 800:
             test2 = True
-        # if global_ep.value >= 5:#500:
-        #    test2
 
     with global_ep_r.get_lock():
         if global_ep_r.value == 0.:
@@ -58,6 +56,7 @@ def record_fell(global_ep, global_ep_r, ep_r, res_queue, name, enemies, kills, v
         "| Ep_r: %.2f" % global_ep_r.value, " indiv: %.2f" % ep_r, task
     )
 
+
 def record_dead(global_ep, global_ep_r, ep_r, res_queue, name, enemies, kills, victory,
                 dead, ammo, p_queue, dist, step, tk, a_queue):
     test = False
@@ -68,8 +67,6 @@ def record_dead(global_ep, global_ep_r, ep_r, res_queue, name, enemies, kills, v
             test = True
         if global_ep.value >= 800:
             test2 = True
-        # if global_ep.value >= 5:#500:
-        #    test2
 
     with global_ep_r.get_lock():
         if global_ep_r.value == 0.:
@@ -81,7 +78,6 @@ def record_dead(global_ep, global_ep_r, ep_r, res_queue, name, enemies, kills, v
         p_queue.put(ep_r)
     if test2:
         a_queue.put(ep_r)
-    # my_p2.put(ep_r)
     res_queue.put(global_ep_r.value)
 
     print(
@@ -100,7 +96,7 @@ def get_dist(player, enemy):
     e_coor = [en_x, en_y]
     p_coor = [pl_x, pl_y]
 
-    return math.sqrt(sum((px - qx) ** 2.0 for px, qx in zip(p_coor, e_coor)))  # math.dist(p_coor, e_coor)
+    return math.sqrt(sum((px - qx) ** 2.0 for px, qx in zip(p_coor, e_coor)))
 
 
 def get_angle(target, start, offset=0.0):
@@ -110,8 +106,6 @@ def get_angle(target, start, offset=0.0):
     en_x = start.position_x
     en_y = start.position_y
 
-    # print(start.angle)
-    # exit()
     ang = round(start.angle, 4) + offset  # * 2 * np.pi / 360 + offset
     if ang < 0:
         ang = 360 + ang
@@ -172,12 +166,9 @@ def get_armor(armor, player):
 
 
 def get_ammo(ammo, player):
-    # print(get_dist(ammo, player))
     if get_dist(ammo, player) < 15:
         t = [0, 1, 3, 4]
         return t[np.random.randint(0, 4)]
-
-
     else:
         return get_armor(ammo, player)
 
@@ -192,7 +183,7 @@ def navigate(target, player):
     return get_armor(target, player)
 
 
-def fight(target, player, offset=0.0, w=5, goal=False):
+def fight(target, player):
     if gunner(target, player) == 2:
         return 2
     return move(target, player)

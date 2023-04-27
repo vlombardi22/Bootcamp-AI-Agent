@@ -1,5 +1,5 @@
 import os
-#import copy
+# import copy
 import time
 import random
 
@@ -147,8 +147,6 @@ class SailonViz:
         game.init()
         self.game = game
 
-        return None
-
     def step(self, action):
         # Decode action
         action = self.actions[action]
@@ -179,7 +177,6 @@ class SailonViz:
         self.performance = 1 - (self.total_target_count + target_by_time) / (self.step_limit * self.max_target_count)
         self.performance = round(self.performance, 6)
 
-
         victory = False
         dead = False
         done = self.is_done()
@@ -187,7 +184,7 @@ class SailonViz:
             done = True
             dead = True
 
-        # Special check to see if all monsters died (needed to prevent aditional tick)
+        # Special check to see if all monsters died (needed to prevent additional tick)
         if len(observation['enemies']) == 0 and self.task == 1:
             self.done = True
             victory = True

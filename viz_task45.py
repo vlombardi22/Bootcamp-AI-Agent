@@ -81,7 +81,6 @@ class SailonViz:
 
         # Decide on agent behaviour here
 
-
         self.Agents = Agents(self.level, self.difficulty, self.use_mock)
 
         # Make and load game parameters here
@@ -145,8 +144,6 @@ class SailonViz:
         game.init()
         self.game = game
 
-        return None
-
     def step(self, action):
         # Decode action
         action = self.actions[action]
@@ -172,7 +169,6 @@ class SailonViz:
         target_by_time = current_targets * (self.step_limit - self.tick)
         self.performance = 1 - (self.total_target_count + target_by_time) / (self.step_limit * self.max_target_count)
         self.performance = round(self.performance, 6)
-
 
         victory = False
         dead = False
