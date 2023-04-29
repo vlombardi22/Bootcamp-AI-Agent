@@ -6,7 +6,7 @@ from Nav import Net as nav
 from ppo_util import Agent
 
 import numpy as np
-from viz_task45 import SailonViz as SViz
+from viz_tasks15 import SailonViz as SViz
 import sys
 import random
 import csv
@@ -77,7 +77,7 @@ class Worker():
 
             self.seed_list = [np.random.randint(0, 1000) for i in range(MAX_EP)]
 
-        self.game = SViz(use_mock, use_novel, level, False, seed, difficulty, use_seed=self.use_seed)
+        self.game = SViz(use_mock, use_novel, level, False, seed, difficulty, use_seed=self.use_seed, task=4)
 
     def helm(self, nav_vec, state, combat, patrol_targ, clip, med, act, targ_coord, tir, p_coord, player, ammo):
         """

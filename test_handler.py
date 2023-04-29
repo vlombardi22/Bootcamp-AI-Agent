@@ -1,9 +1,7 @@
 #!/usr/bin/env python3
-# import json
-# import random
 
-from viz_task45 import SailonViz as SViz
-from viz_task123 import SailonViz as TViz
+
+from viz_tasks15 import SailonViz as SViz
 import numpy as np
 
 
@@ -12,7 +10,7 @@ class TestHandler:
     # Init function, accepts connection and address info
     def __init__(self, seed_list, domain: str = 'cartpole', novelty: int = 0, difficulty: str = 'easy',
                  seed: int = 123, trial_novelty: int = 0, day_offset: int = 0, use_img: bool = False,
-                 path: str = "env_generator/envs/", use_gui: bool = False, check: bool = False, tdir="4"):
+                 path: str = "env_generator/envs/", use_gui: bool = False, check: bool = False, tdir=4):
 
         # Set parameters
         self.seed = seed
@@ -21,7 +19,7 @@ class TestHandler:
         self.difficulty = 'easy'
         self.check = check
         self.trial_novelty = trial_novelty
-        self.tdir = int(tdir)
+        self.tdir = tdir
         self.day_offset = day_offset
         self.use_img = use_img
         self.path = path
@@ -30,7 +28,7 @@ class TestHandler:
         self.use_novel = 0
         self.level = 0
 
-        if tdir == "5":
+        if tdir == 5:
             self.use_novel = 1
             self.level = 208
 
@@ -39,13 +37,13 @@ class TestHandler:
         # Load test based on params
         self.use_seed = False
 
-        self.test = SViz(self.use_mock, self.use_novel, self.level, False, seed, difficulty, use_seed=self.use_seed)
+        self.test = SViz(self.use_mock, self.use_novel, self.level, False, seed, difficulty, use_seed=self.use_seed, task=4)
 
-        if int(tdir) < 4 :
+        if tdir < 4:
             if not check:
-                self.test1 = TViz(self.use_mock, self.use_novel, self.level, False, seed, difficulty, use_seed=self.use_seed, task=1)
-                self.test2 = TViz(self.use_mock, self.use_novel, self.level, False, seed, difficulty, use_seed=self.use_seed, task=2)
-                self.test3 = TViz(self.use_mock, self.use_novel, self.level, False, seed, difficulty, use_seed=self.use_seed, task=3)
+                self.test1 = SViz(self.use_mock, self.use_novel, self.level, False, seed, difficulty, use_seed=self.use_seed, task=1)
+                self.test2 = SViz(self.use_mock, self.use_novel, self.level, False, seed, difficulty, use_seed=self.use_seed, task=2)
+                self.test3 = SViz(self.use_mock, self.use_novel, self.level, False, seed, difficulty, use_seed=self.use_seed, task=3)
                 r = np.random.randint(1, 4)
                 if r == 1:
                     self.test = self.test1
@@ -54,7 +52,7 @@ class TestHandler:
                 else:
                     self.test = self.test3
             else:
-                self.test = SViz(self.use_mock, self.use_novel, self.level, False, seed, difficulty, use_seed=self.use_seed)
+                self.test = SViz(self.use_mock, self.use_novel, self.level, False, seed, difficulty, use_seed=self.use_seed, task=4)
                 self.test1 = None
                 self.test2 = None
                 self.test3 = None
@@ -66,11 +64,11 @@ class TestHandler:
         self.use_seed = use_seed
         if self.use_seed:
             self.seed = self.seed_list[0]
-        self.test = SViz(self.use_mock, self.use_novel, self.level, False, self.seed, self.difficulty, use_seed=self.use_seed)
+        self.test = SViz(self.use_mock, self.use_novel, self.level, False, self.seed, self.difficulty, use_seed=self.use_seed, task=4)
         if self.tdir < 4:
-            self.test1 = TViz(self.use_mock, self.use_novel, self.level, False, self.seed, self.difficulty, use_seed=self.use_seed, task=1)
-            self.test2 = TViz(self.use_mock, self.use_novel, self.level, False, self.seed, self.difficulty, use_seed=self.use_seed, task=2)
-            self.test3 = TViz(self.use_mock, self.use_novel, self.level, False, self.seed, self.difficulty, use_seed=self.use_seed, task=3)
+            self.test1 = SViz(self.use_mock, self.use_novel, self.level, False, self.seed, self.difficulty, use_seed=self.use_seed, task=1)
+            self.test2 = SViz(self.use_mock, self.use_novel, self.level, False, self.seed, self.difficulty, use_seed=self.use_seed, task=2)
+            self.test3 = SViz(self.use_mock, self.use_novel, self.level, False, self.seed, self.difficulty, use_seed=self.use_seed, task=3)
             np.random.seed(self.seed)
             r = np.random.randint(1, 4)
             if r == 1:

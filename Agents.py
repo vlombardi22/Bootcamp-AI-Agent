@@ -14,7 +14,7 @@ NOTHING = 8
 
 class Agents:
 
-    def __init__(self, level, difficulty, mock):
+    def __init__(self, level, difficulty, mock, base=False):
         # level and novelty selections
         self.level = level
         self.difficulty = difficulty
@@ -23,7 +23,9 @@ class Agents:
         # Set looking bounds (vision cone)
         self.left_side = np.pi * 7 / 8
         self.right_side = np.pi / 8
-
+        self.aggression = 0.75
+        if base:
+            self.aggression = 0.80
         self.viz_id_to_cvar = None
 
         # Used for checking wall collision
@@ -356,9 +358,8 @@ class Agents:
             # Check enemy can shoot
             if angle < self.right_side:
                 # Enemy has a 50% chance to shoot if aiming at player
-                if np.random.rand() > 0.75:
+                if np.random.rand() > self.aggression:
                     commands[ind] = [ind, SHOOT]
-                    # pass
 
         return commands
 

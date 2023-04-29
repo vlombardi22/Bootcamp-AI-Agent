@@ -11,7 +11,7 @@ from Nav import Net as nav
 from shared import SharedAdam
 
 import numpy as np
-from viz_task45 import SailonViz as SViz
+from viz_tasks15 import SailonViz as SViz
 
 import random
 import os
@@ -96,7 +96,7 @@ class Worker(mp.Process):
             level = 208
         difficulty = 'easy'
 
-        self.game = SViz(use_mock, self.use_novel, level, False, seed, difficulty, use_seed=self.use_seed)
+        self.game = SViz(use_mock, self.use_novel, level, False, seed, difficulty, use_seed=self.use_seed, task=4)
 
     def helm(self, nav_vec, state, combat, patrol_targ, clip, med, act, targ_coord, tir, p_coord, player, ammo):
         """

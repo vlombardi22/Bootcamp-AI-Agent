@@ -9,7 +9,7 @@ from Nav import Net as nav
 from ppo_util import Agent
 
 import numpy as np
-from viz_task123 import SailonViz as SViz
+from viz_tasks15 import SailonViz as SViz
 import random
 import os
 import csv

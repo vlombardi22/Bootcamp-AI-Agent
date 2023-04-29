@@ -49,7 +49,7 @@ class CWrapper:
         self.seed_list = [np.random.randint(0, 1000) for i in range(TEST_EPS)]
 
         self.env = TestHandler(self.seed_list, domain='vizdoom', novelty=novelty, trial_novelty=novelty,
-                               difficulty=difficulty, seed=self.seed, check=check)
+                               difficulty=difficulty, seed=self.seed, check=check, tdir=1)
 
         self.action_space = range(8)
         self.observation_space = np.zeros(28)
