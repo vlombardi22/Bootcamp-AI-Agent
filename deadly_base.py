@@ -9,84 +9,29 @@ import torch.nn as nn
 from myutil import v_wrap, set_init, push_and_pull
 import torch.nn.functional as F
 import torch.multiprocessing as mp
-from hall_skills import get_dist, get_angle, get_armor, fight, record_dead, get_ammo, navigate, gunner
+from hall_skills import get_dist, get_angle, record_dead, gunner
 from shared import SharedAdam
-# import cv2
-# import matplotlib.pyplot as plt
+from Nav import Net as nav
+
 import csv
 import numpy as np
 import vizdoom as vzd
 import random
 import os
-from time import sleep
 
 os.environ["OMP_NUM_THREADS"] = "4"
 
 UPDATE_GLOBAL_ITER = 10
 GAMMA = 0.97
 MAX_EP = 1000
-HIDDEN_SIZE = 64  # 128
-H_SIZE = 32  # 64
+HIDDEN_SIZE = 64
+H_SIZE = 32
 IS_CONTROL = False
 IS_TEST = False
-DEBUG = False
-
-STATE_SIZE = 22  # 12#13  # 15#14#11#8#10#12  #12#8#9#11
+STATE_SIZE = 22
 ACTION_SIZE = 7
 
 
-class Net(nn.Module):
-
-    def __init__(self, s_dim, a_dim):
-        super(Net, self).__init__()
-        self.s_dim = s_dim
-        self.a_dim = a_dim
-
-        self.pi1 = nn.Linear(s_dim, HIDDEN_SIZE)
-        self.pij = nn.Linear(HIDDEN_SIZE, H_SIZE)
-        self.pij2 = nn.Linear(H_SIZE, H_SIZE)
-        self.pi2 = nn.Linear(H_SIZE, a_dim)
-
-        self.v1 = nn.Linear(s_dim, HIDDEN_SIZE)
-        self.vj = nn.Linear(HIDDEN_SIZE, H_SIZE)
-        self.vj2 = nn.Linear(H_SIZE, H_SIZE)
-
-        self.v2 = nn.Linear(H_SIZE, 1)
-        set_init([self.pi1, self.pij, self.pij2, self.pi2, self.v1, self.vj, self.vj2, self.v2])
-        # set_init([self.pi1, self.pij, self.pi2, self.v1, self.vj, self.v2])
-
-        self.distribution = torch.distributions.Categorical
-
-    def forward(self, x):
-        pi1 = F.leaky_relu(self.pi1(x))
-        v1 = F.leaky_relu(self.v1(x))
-        pij = F.leaky_relu(self.pij(pi1))
-        vj = F.leaky_relu(self.vj(v1))
-        pij2 = F.leaky_relu(self.pij2(pij))
-        vj2 = F.leaky_relu(self.vj2(vj))
-        logits = self.pi2(pij2)
-        values = self.v2(vj2)
-        return logits, values
-
-    def choose_action(self, s):
-        self.eval()
-        logits, _ = self.forward(s)
-        prob = F.softmax(logits, dim=1).data
-        m = self.distribution(prob)
-        return m.sample().numpy()[0]
-
-    def loss_func(self, s, a, v_t):
-        self.train()
-        logits, values = self.forward(s)
-        td = v_t - values
-        c_loss = td.pow(2)
-
-        probs = F.softmax(logits, dim=1)
-        m = self.distribution(probs)
-        exp_v = m.log_prob(a) * td.detach().squeeze()
-        a_loss = -exp_v
-        total_loss = (c_loss + a_loss).mean()
-        return total_loss
 
 
 def break_armor(armor, player):
@@ -97,8 +42,7 @@ def break_armor(armor, player):
     angle = angle * 180 / np.pi
     dist = get_dist(player, armor)
     strat_armor = [armor.position_x, armor.position_y, dist, angle]
-    # print(strat_armor)
-    # exit()
+
     return strat_armor, dist
 
 
@@ -118,45 +62,20 @@ def break_item(item, player):
     return strat_ammo, m_item
 
 
-[0.0, 0.0, -1.0, 0.0]
-
-
 def break_enemy(enemies, player):
     strat_enemy = []
     min_dist = 10000
     m_enemy = None
-    # o.name == "ChaingunGuy" or o.name == "ShotgunGuy" or o.name == "Zombieman"
     for e in enemies:
         dist = get_dist(player, e)
-        # print(e.position_x, ",", e.position_y, ",", e.name)
-        # if e.name == "Zombieman":
-        #    print(dist)
-        """if dist < 250 and min_dist < 250:
 
-            if not m_enemy:
-              min_dist = dist
-              m_enemy = e  
-
-            elif m_enemy.name == "Zombieman":
-                min_dist = dist
-                m_enemy = e
-            elif m_enemy.name == "ShotgunGuy" and e.name != "Zombieman":
-                min_dist = dist
-                m_enemy = e
-            elif e.name == "ChaingungunGuy":       
-                min_dist = dist
-                m_enemy = e
-        elif min_dist > dist and min_dist >= 250:
-        """
         if min_dist > dist:
             min_dist = dist
             m_enemy = e
-    # exit()
     if not m_enemy:
         strat_enemy = [0.0, 0.0, 0.0, -1.0, 0.0]
     else:
-        # print(m_enemy.name)
-        # print(min_dist)
+
         angle, _ = get_angle(m_enemy, player, 0.0)
         angle = angle * 180 / np.pi
         t = 1
@@ -164,16 +83,10 @@ def break_enemy(enemies, player):
             t = 2
         elif m_enemy.name == "ChaingunGuy":
             t = 3
-        # print(m_enemy.health)
         strat_enemy = [m_enemy.position_x, m_enemy.position_y, t, get_dist(m_enemy, player),
                        angle]
-        # print(min_dist)
         if min_dist > 250.0:
-            # strat_enemy[4] = 180.0
-
-            # strat_enemy = [0.0, 0.0, 0.0, -1.0, 0.0]
             m_enemy = None
-    # print(get_dist(m_enemy, player))
     return m_enemy, strat_enemy
 
 
@@ -187,7 +100,7 @@ class Worker(mp.Process):
         self.g_ep, self.g_ep_r, self.res_queue = global_ep, global_ep_r, res_queue
         self.gnet, self.opt = gnet, opt
 
-        self.lnet = Net(STATE_SIZE, ACTION_SIZE)
+        self.lnet = nav(STATE_SIZE, ACTION_SIZE, HIDDEN_SIZE, H_SIZE)
 
         self.seed_list = []
         if IS_TEST:
@@ -196,60 +109,17 @@ class Worker(mp.Process):
             np.random.seed(seed)
             self.seed_list = [np.random.randint(0, 1000) for i in range(MAX_EP)]
         if l == "Y":
-            # if IS_TEST:
-            #    self.lnet = gnet
-            # else:
-            # print(f)
-
             self.lnet.load_state_dict(f, strict=stric)  # bookmark
 
-            # self.lnet.load_state_dict(gnet.state_dict())
-
-            # act_net = {}
-            """"
-            act_full = gnet.state_dict()
-            if not stric:
-
-                # act_net['pi1.weight'] = act_full['pi1.weight']
-                # act_net['pi1.bias'] = act_full['pi1.bias']
-                # act_net['v1.weight'] = act_full['v1.weight']
-                # act_net['v1.bias'] = act_full['v1.bias']
-                act_net['pij.weight'] = act_full['pij.weight']
-                act_net['pij.bias'] = act_full['pij.bias']
-                # act_net['vj.weight'] = act_full['vj.weight']
-                # act_net['vj.bias'] = act_full['vj.bias']
-                act_net['pij2.weight'] = act_full['pij2.weight']
-                act_net['pij2.bias'] = act_full['pij2.bias']
-                # act_net['vj2.weight'] = act_full['vj2.weight']
-                # act_net['vj2.bias'] = act_full['vj2.bias']
-                # act_net['pi2.weight'] = act_full['pi2.weight']
-                # act_net['pi2.bias'] = act_full['pi2.bias']
-                # act_net['v2.weight'] = act_full['v2.weight']
-                # act_net['v2.bias'] = act_full['v2.bias']
-            else:
-
-                act_net = act_full
-            # print(f2)
-
-            # if IS_TEST:
-
-            #    gnet = act_full
-            # else:
-
-            self.lnet.load_state_dict(act_net, strict=stric)
-            # gnet.load(act_net, strict=stric)
-            """
         self.my_q = my_queue
         self.my_ju = p_queue
         self.my_as = my_p2
-        # self.my_tra = my_p3
-        # self.game = SViz(use_mock, use_novel, level, True, seed, difficulty)
+
         self.game = vzd.DoomGame()
-        self.step_limit = 1500  # 2100
+        self.step_limit = 1500  #
         self.info_list = info_list
         # Sets path to additional resources wad file which is basically your scenario wad.
         # If not specified default maps will be used and it's pretty much useless... unless you want to play good old Doom.
-        # self.game.set_doom_scenario_path("../../scenarios/basic.wad")
         self.game.set_doom_scenario_path("../../scenarios/deadly_hall.wad")
         # Sets map to start (scenario .wad files can contain many maps).
         self.game.set_doom_map("map01")
@@ -307,10 +177,7 @@ class Worker(mp.Process):
         self.game.set_episode_start_time(10)
 
         # Makes the window appear (turned on by default)
-        # if self.name == "w00":
-        #    self.gaome.set_window_visible(True)
-        # else:
-        self.game.set_window_visible(DEBUG)  # IS_TEST)
+        self.game.set_window_visible(False)
 
         # Sets the living (for each move) to -1
         # self.game.set_living_reward(-1)
@@ -338,14 +205,8 @@ class Worker(mp.Process):
                 armor = o
             elif o.name == "ChaingunGuy" or o.name == "ShotgunGuy" or o.name == "Zombieman":
                 enemies.append(o)
-                # if IS_TEST and temp:
-                #   print(o.name)
             elif o.name == "Clip":
                 items.append(o)
-            # else:
-            #    print(o.name)
-        # print(len(enemies))
-        # exit()
 
         target, strat_enemy = break_enemy(enemies, player)
 
@@ -366,18 +227,9 @@ class Worker(mp.Process):
                       e_count] + strat_enemy + [
                          i_count] + strat_item + [a_count] + strat_armor + [0.0]
 
-        # print(len(sensor_vec))
-        # exit()
         c_act = 7
         if target:
-            # n_act = my_nact(player)#move(target, player)
             c_act = gunner(target, player)
-
-            # n_act = fight(target, player)
-            # n_act = 7
-            # print(n_act)
-            # print(c_act)
-            # exit()
 
         return np.asarray(sensor_vec), e_count, c_act, health, ammo, dist
 
@@ -390,16 +242,12 @@ class Worker(mp.Process):
                    [False, False, False, False, False, False, True], [False, False, False, False, False, False, False]]
         actions2 = ['left', 'right', 'shoot', 'forward', 'backward', 'turn_left', 'turn_right', 'nothing']
         v_count = 0
-        # i3 = STATE_SIZE - 1  # 1 # 3
-        i4 = STATE_SIZE - 1  # 3 # 2
-        # i5 = STATE_SIZE - 2  # 2 # 1
-        # i6 = STATE_SIZE - 4
+        i4 = STATE_SIZE - 1
         ep = 0
         task_var = 0.0
         r_list = []
         r_list2 = []
         t_kills = 0
-        alist = ["c", "n", "r", "m"]
 
         while self.g_ep.value < MAX_EP:
             step = 0
@@ -416,27 +264,21 @@ class Worker(mp.Process):
             self.total_target_count = 0
             state_vec, e_count, c_act, health, ammo, o_dist = self.breaker(
                 state, True)  # initial state_vec
-            # if IS_TEST:
-            #    print(e_count)
+
             t_count = e_count
 
             buffer_s, buffer_a, buffer_r = [], [], []
 
             a_count = 0
 
-            # task_var = 1.0
-            # task_var = np.random.randint(0,4)
-            # state_vec[i3] = task_var  # 0.0#1.0
-
             if e_count > 0:  # can attack
 
-                if c_act < 7:  # c_act < 7:
+                if c_act < 7:
                     state_vec[i4] = 3.0
                 else:
                     state_vec[i4] = 1.0
 
-            ep_r = 0.0
-            ep_rr = 0.0
+            ep_reward = 0.0
             ep += 1
             tk = 0
             fired = 0
@@ -450,69 +292,41 @@ class Worker(mp.Process):
                 my_act = actions[act]
                 my_act2 = actions2[act]
 
-                # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-                skiprate = 1
-                # if my_act2 == "shoot":
-                #    skiprate = 4
-
-                rew = self.game.make_action(my_act, skiprate)
+                rew = self.game.make_action(my_act, 1)
                 victory = False
                 new_state = self.game.get_state()
                 done = self.game.is_episode_finished()
                 dead = self.game.is_player_dead()
 
                 if rew > 1:
-                    # print(step)
                     victory = True
                 elif done and not dead:
                     reward -= 5
 
                 reward += rew
-
-                # print(reward)
-
-                # if new_state.objects:
                 nstate_vec = []
                 if not done:
-                    pact = c_act
                     nstate_vec, e_temp, n_act, h, n_ammo, dist = self.breaker(new_state, False)
 
-                    # print(health)
-                    # exit()
-
-                    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
                     if dist < o_dist:
-                        reward += 0.5  # 0.2#(0.1 + (0.1 * kills))#0.5
+                        reward += 0.5
 
                     o_dist = dist
                     if n_ammo < ammo:
                         fired += 1
                     if e_temp < e_count:
-                        # e_count -= 1
-
                         if my_act2 == "shoot":
-                            reward += 15  # 25#10
-                            # else:
-                            #    reward += 50
+                            reward += 15
                             kills += 1
                             tk += 1
-                            # fired += 1
-                            # print(fired)
 
                             fired = 0
                         else:
                             tk += 1
-                            # print("rip:", str(n_ammo))
-                            # reward += 10
                     e_count = e_temp
 
                     if h < health:
-                        # if (act != 0 or c_act == 7):
-                        reward -= 1.0  # 0.5
-                        # else:
-                        #    reward -= 0.5
+                        reward -= 1.0
 
                     health = h
 
@@ -521,7 +335,6 @@ class Worker(mp.Process):
 
                     ammo = n_ammo
 
-                    # nstate_vec[i3] = task_var  # 0.0#1.0
                     nstate_vec[i4] = 0.0
                     if e_count > 0:
                         if c_act < 7:
@@ -531,9 +344,6 @@ class Worker(mp.Process):
                         else:
                             nstate_vec[i4] = 1.0
 
-
-
-
                 else:
                     nstate_vec = state_vec
                     if dead:
@@ -541,20 +351,19 @@ class Worker(mp.Process):
                 arm = 2
                 if victory:
                     v_count += 1
-                    # reward += (kills * 20)
                     done = True
 
                     arm = 0
                 current_targets = 0
-                current_targets = current_targets + (t_count - kills) + arm  # e_count
+                current_targets = current_targets + (t_count - kills) + arm
                 self.total_target_count = self.total_target_count + current_targets
                 target_by_time = current_targets * (self.step_limit - step)
                 performance = 1 - (self.total_target_count + target_by_time) / (
                         self.step_limit * self.max_target_count)
                 performance = round(performance, 6)
 
-                ep_r = performance  # step  # performance  # reward
-                ep_rr += reward
+
+                ep_reward += reward
 
                 if not IS_TEST:
                     buffer_a.append(act)
@@ -573,49 +382,35 @@ class Worker(mp.Process):
                     if done:  # done and print information
                         t_kills += kills
                         if IS_TEST:
-                            r_list.append(ep_r)
-                            r_list2.append(ep_rr)
-                            self.info_list.put([self.g_ep.value, ep_rr, step, performance, kills, a_count])
+                            r_list.append(performance)
+                            r_list2.append(ep_reward)
+                            self.info_list.put([self.g_ep.value, ep_reward, step, performance, kills, a_count])
                         else:
 
-                            self.info_list.put([self.g_ep.value, ep_rr, step, performance, kills, a_count])
-                        record_dead(self.g_ep, self.g_ep_r, ep_r, self.res_queue, self.name, t_count, kills, victory,
+                            self.info_list.put([self.g_ep.value, ep_reward, step, performance, kills, a_count])
+                        record_dead(self.g_ep, self.g_ep_r, performance, self.res_queue, self.name, t_count, kills, victory,
                                     dead, a_count, self.my_ju, o_dist, step, tk, self.my_as)
                         break
 
                 state_vec = nstate_vec
                 state = new_state
                 total_step += 1
-            # turn += 1
-            # self.game.close()
 
         if IS_TEST:
-            print(v_count)
-            # print(np.average(r_list))
-            av = np.average(r_list)
-            print(av)
-            self.my_q.put([v_count, np.average(r_list2), av])
+            self.my_q.put([v_count, np.average(r_list2), np.average(r_list)])
         self.my_ju.put(None)
-        # self.my_tra.put(None)
         self.my_as.put(None)
         self.info_list.put(None)
         self.res_queue.put(None)
 
 
 def main(f, my_q, my_r, f2, my_q2, f3):
-    gnet = Net(STATE_SIZE, ACTION_SIZE)  # global network    global_kills = mp.Value('i', 0)
-    # gnet.share_memory()  # share the global parameters in multiprocessing
-    # start = timeit.timeit()
+    gnet = nav(STATE_SIZE, ACTION_SIZE, HIDDEN_SIZE, H_SIZE)  # global network
 
-    # end = timeit.timeit()
-    # print(end - start)
-    # exit()
-    # l = "Y"  # input("load Y or N:")
 
-    my_jump = mp.Queue()  # mp.Queue()
+    my_jump = mp.Queue()
     my_asym = mp.Queue()
     my_info = mp.Queue()
-    # my_tran = mp.Queue()
     l = "N"
     stric = True
     if IS_TEST:
@@ -623,44 +418,11 @@ def main(f, my_q, my_r, f2, my_q2, f3):
         stric = True
     act_net = {}
     print(f)
-    # if l == "Y":
-    # act_net = torch.load(f)
-    # gnet.load_state_dict(act_net, strict=stric)
+
     if l == "Y":
+        act_net = torch.load(f)
 
-        act_full = torch.load(f)
-
-        if not stric:  # critic layers 1-3 work kind of
-
-            act_net['pi1.weight'] = act_full['pi1.weight']
-            act_net['pi1.bias'] = act_full['pi1.bias']
-            act_net['v1.weight'] = act_full['v1.weight']
-            act_net['v1.bias'] = act_full['v1.bias']
-            act_net['pij.weight'] = act_full['pij.weight']
-            act_net['pij.bias'] = act_full['pij.bias']
-            act_net['vj.weight'] = act_full['vj.weight']
-            act_net['vj.bias'] = act_full['vj.bias']
-            act_net['pij2.weight'] = act_full['pij2.weight']
-            act_net['pij2.bias'] = act_full['pij2.bias']
-            act_net['vj2.weight'] = act_full['vj2.weight']
-            act_net['vj2.bias'] = act_full['vj2.bias']
-            # act_net['pi2.weight'] = act_full['pi2.weight']
-            # act_net['pi2.bias'] = act_full['pi2.bias']
-            # act_net['v2.weight'] = act_full['v2.weight']
-            # act_net['v2.bias'] = act_full['v2.bias']
-        else:
-
-            act_net = act_full
-
-        # print(f2)
-
-        # if IS_TEST:
-
-        #    gnet = act_full
-        # else:
-        # act_net = act_full
         gnet.load_state_dict(act_net, strict=stric)
-        # gnet.load(act_net, strict=stric)
 
     my_lr = 1e-3
     if IS_TEST:
@@ -674,8 +436,7 @@ def main(f, my_q, my_r, f2, my_q2, f3):
     else:
         print("training")
         cp_count = 4
-        if DEBUG:
-            cp_count = 1
+
 
     # parallel training
     if mp.cpu_count() < 6:
@@ -691,7 +452,6 @@ def main(f, my_q, my_r, f2, my_q2, f3):
     res = []  # record episode reward to plot
 
     m_jump = 0
-    # m_tran = 0
     m_asym = 0
     while True:
         r = res_queue.get()
@@ -703,7 +463,6 @@ def main(f, my_q, my_r, f2, my_q2, f3):
 
         jump = []
         asympt = []
-        transrate = []
 
         while True:
             p = my_jump.get()
@@ -720,14 +479,8 @@ def main(f, my_q, my_r, f2, my_q2, f3):
             else:
                 break
         m_asym = np.average(asympt)
-        # while True:
-        #    p = my_tran.get()
-        #    if p is not None:
-        # transrate.append(p)
-        #    else:
-        #        break
-        # m_tran = np.average(transrate)
-    myinfo = []  # f3 = f0 + "raw.csv"
+
+    myinfo = []
     while True:
         p = my_info.get()
         if p is not None:
@@ -745,7 +498,6 @@ def main(f, my_q, my_r, f2, my_q2, f3):
     if not IS_TEST:
         print(f2)
         torch.save(gnet.state_dict(), f2)
-        # torch.save(gnet, f2)
 
         my_r2 = np.add(my_r, res)
         my_q3 = my_q2
@@ -759,19 +511,13 @@ if __name__ == "__main__":
     x = 0
     rang = 30
     test_ep = 1000
-    # MAX_EP = 10 #5
 
-    control = "Y"  # "Y"#input("control Y or N:")
-    # testing = "N"  # input("test Y or N:")
-    is_load = "N"  # input("continue Y or N:")
+    control = "Y"
+    is_load = "N"
 
     if control == "Y" or control == "y":
         IS_CONTROL = True
-    # if testing == "Y" or testing == "y":
-    #    IS_TEST = True
 
-    # if IS_TEST:
-    #    MAX_EP = test_ep
 
     my_q = mp.Queue()
     my_q2 = []
@@ -785,17 +531,12 @@ if __name__ == "__main__":
         f0 = pref + str(n)
         f1 = f0 + ".txt"
         f2 = pref + "deadlyb_" + str(n) + ".txt"
-        # print(f2)
         f3 = f0 + "rawb.csv"
-        # if not os.path.exists(f1):
-        #    print("file:", f1, "does not exist")
-        #    break
-        # print(f1)
-        my_r, my_q2 = main(f1, my_q, my_r, f2, my_q2, f3)  # my_jump, my_asym, my_tran)
+
+        my_r, my_q2 = main(f1, my_q, my_r, f2, my_q2, f3)
 
     IS_TEST = True
-    # DEBUG = True
-    # if IS_TEST:
+
     MAX_EP = test_ep
 
     my_q = mp.Queue()
@@ -809,8 +550,7 @@ if __name__ == "__main__":
         if not os.path.exists(f1):
             print("file:", f1, "does not exist")
             break
-        # print(f1)
-        _, _ = main(f1, my_q, my_r, f2, my_q2, f3)  # my_jump, my_asym, my_tran)
+        _, _ = main(f1, my_q, my_r, f2, my_q2, f3)
     # name of csv file
     filename = "boot_deadlyb.csv"
 
@@ -849,7 +589,6 @@ if __name__ == "__main__":
     my_q.put(None)
 
     f = open("myout_deadlyb.txt", "w")
-    # if IS_TEST:
     if control == "N":
         f.write("boot\n")
     else:
@@ -871,18 +610,3 @@ if __name__ == "__main__":
         print(i)
     f.close()
     print("done")
-
-    """
-    # if IS_TEST:
-    while True:
-        r = my_q.get()
-        if r is not None:
-            print(r)
-
-        else:
-            break
-
-    print("other")
-    for i in my_q2:
-        print(i)
-    """

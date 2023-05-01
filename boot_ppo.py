@@ -18,10 +18,10 @@ import sys
 os.environ["OMP_NUM_THREADS"] = "4"
 
 UPDATE_GLOBAL_ITER = 20
-GAMMA = 0.97  # 0.60  # 0.97
+GAMMA = 0.97
 MAX_EP = 2000
-HIDDEN_SIZE = 32  # 128
-H_SIZE = 16  # 64
+HIDDEN_SIZE = 32
+H_SIZE = 16
 
 IS_CONTROL = False
 IS_TEST = False
@@ -32,17 +32,17 @@ ACTION_SIZE = 4
 
 class my_task():
 
-    def __init__(self, gnet, gnav, gammo, global_ep, global_ep_r, res_queue, name, global_kills,
+    def __init__(self, strategist, nav_room, nav_ammo, global_ep, global_ep_r, res_queue, name, global_kills,
                  global_health, global_ammo, test_results, info_list):
 
         self.name = 'w%02i' % name
         self.g_ep, self.g_ep_r, self.res_queue = global_ep, global_ep_r, res_queue
-        self.strategist = gnet
+        self.strategist = strategist
         self.g_k = global_kills
         self.g_h = global_health
         self.g_a = global_ammo
-        self.nav_room = gnav
-        self.nav_ammo = gammo
+        self.nav_room = nav_room
+        self.nav_ammo = nav_ammo
         self.info_list = info_list
         self.test_results = test_results
 
@@ -53,7 +53,7 @@ class my_task():
         self.patrol_list = [{"x_position": 180.0, "y_position": 0.0}, {"x_position": 0.0, "y_position": 180.0},
                             {"x_position": -180.0, "y_position": 0}, {"x_position": 0, "y_position": -180.0}]
 
-        seed = 97  # random.randint(0, 1000)
+        seed = 97
 
         self.seed_list = []
         self.use_seed = False
@@ -84,20 +84,20 @@ class my_task():
         override = False
 
         if act == 0 and ammo > 0:
-            if combat == 1:  # and ammo > 0:
+            if combat == 1:
 
                 c_act = np.dtype('int64').type(4)
 
-            elif combat == 2:  # and ammo > 0:
+            elif combat == 2:
                 c_act = np.dtype('int64').type(5)
 
-            elif combat == 3:  # and ammo > 0:
+            elif combat == 3:
                 c_act = np.dtype('int64').type(6)
             elif combat == 4 and ammo > 0:
                 c_act = np.dtype('int64').type(0)
             elif combat == 5 and ammo > 0:
                 c_act = np.dtype('int64').type(1)
-        if act == 2 and med:  # len(items['health']) > 0:
+        if act == 2 and med:
             m_coord = tracker(med)
             if m_coord == p_coord:
                 if player['angle'] == 90:
@@ -108,19 +108,18 @@ class my_task():
                 else:
 
                     if 270 > player['angle'] > 90:
-                        m_act = np.dtype('int64').type(5)  # 'turn_right'
+                        m_act = np.dtype('int64').type(5)
                     else:
                         m_act = np.dtype('int64').type(4)
 
             elif p_coord == 1:
-                # check = helper(player, combat, state)
-                if not in_center3(player) and helper(player, combat, state):  # check:  # doors
+                if not in_center3(player) and helper(player, combat, state):
 
                     m_act = to_border(player, m_coord)
 
                 elif player['angle'] != 315:
                     if 315 > player['angle'] > 135:
-                        n_act = np.dtype('int64').type(4)  # 'turn_right'
+                        n_act = np.dtype('int64').type(4)
                     else:
                         n_act = np.dtype('int64').type(5)
                 else:
@@ -133,7 +132,7 @@ class my_task():
                 m_act = to_center(player, p_coord)
 
                 override = True
-        if act == 3 and clip:  # len(items['ammo']) > 0:
+        if act == 3 and clip:
             a_coord = tracker(clip)
 
             if a_coord == p_coord:
@@ -145,18 +144,16 @@ class my_task():
 
                 else:
                     if 270 > player['angle'] > 90:
-                        r_act = np.dtype('int64').type(5)  # 'turn_right'
+                        r_act = np.dtype('int64').type(5)
                     else:
                         r_act = np.dtype('int64').type(4)
             elif p_coord == 1:
-                # check = helper(player, combat, state)
-
-                if not in_center3(player) and helper(player, combat, state):  # check:  # doors
+                if not in_center3(player) and helper(player, combat, state):
                     r_act = to_border(player, a_coord)
 
                 elif player['angle'] != 315:
                     if 315 > player['angle'] > 135:
-                        r_act = np.dtype('int64').type(4)  # 'turn_right'
+                        r_act = np.dtype('int64').type(4)
                     else:
                         r_act = np.dtype('int64').type(5)
                 else:
@@ -172,11 +169,11 @@ class my_task():
 
         if act == 1:
 
-            if tir:  # target_in_room(state['enemies'], p_coord):
+            if tir:
 
                 if player['angle'] != 90:
                     if 270 > player['angle'] > 90:
-                        n_act = np.dtype('int64').type(5)  # 'turn_right'
+                        n_act = np.dtype('int64').type(5)
                     else:
                         n_act = np.dtype('int64').type(4)
                 elif p_coord == 1:
@@ -199,12 +196,12 @@ class my_task():
 
                 override = True
             else:
-                if not in_center3(player) and helper(player, combat, state):  # check:  # doors
+                if not in_center3(player) and helper(player, combat, state):
                     n_act = to_border(player, targ_coord)
 
                 elif player['angle'] != 315:
                     if 315 > player['angle'] > 135:
-                        n_act = np.dtype('int64').type(4)  # turn_left
+                        n_act = np.dtype('int64').type(4)
                     else:
                         n_act = np.dtype('int64').type(5)
                 else:
@@ -263,10 +260,10 @@ class my_task():
                     game = self.game_ammo
                     task_var = 2.0
 
-                    if turn > 7:  # 12: # 12
+                    if turn > 7:
                         task_var = 3.0
                         game = self.game_health
-                        if turn > 11:  # 18:
+                        if turn > 11:
                             turn = 0
                             task_var = 1.0
 
@@ -300,7 +297,7 @@ class my_task():
             test_obst = state['items']['obstacle']
 
             state_vec, nav_vec, e_count, combat, clip, med, targ_coord, tir, seek = breaker(state,
-                                                                                            test_obst)  # initial state_vec
+                                                                                            test_obst)
 
             over_ride = False
             health = int(player['health'])
@@ -569,7 +566,7 @@ class my_task():
         self.info_list.put(None)
 
 
-def train_agent(base_file, test_results, my_res, raw_file, tdir): # bookmark
+def train_agent(base_file, test_results, my_res, raw_file, tdir):
     batch_size = 5
     n_epochs = 4
     alpha = 0.0003
