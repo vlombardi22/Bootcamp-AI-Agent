@@ -5,7 +5,7 @@ import random
 import numpy as np
 import vizdoom as vzd
 
-from Agents import Agents
+from boot_utils.Agents import Agents
 
 
 class SailonViz:

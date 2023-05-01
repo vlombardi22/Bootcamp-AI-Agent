@@ -3,14 +3,14 @@ Reinforcement Learning (A3C) using Pytroch + multiprocessing.
 The most simple implementation for continuous action.
 View more on my Chinese tutorial page [莫烦Python](https://morvanzhou.github.io/).
 """
-from newutil import record_fell, tracker, get_dist, break_ammo, \
+from boot_utils.newutil import record_fell, tracker, get_dist, break_ammo, \
     break_health, get_angle, h_check
 
 import torch.multiprocessing as mp
-from ppo_util import Agent
+from boot_utils.ppo_util import Agent
 
 import numpy as np
-from viz8 import SailonViz as SViz
+from viz_tasks15 import SailonViz as SViz
 
 import random
 import os
@@ -151,7 +151,7 @@ class Worker():
         level = 0
         difficulty = 'easy'
 
-        self.game = SViz(use_mock, use_novel, level, False, seed, difficulty, use_seed=self.use_seed)
+        self.game = SViz(use_mock, use_novel, level, False, seed, difficulty, use_seed=self.use_seed, task=4, base=True)
 
 
 

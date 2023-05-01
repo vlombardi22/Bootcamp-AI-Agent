@@ -2,11 +2,11 @@
 PPO bootcamp
 """
 import torch
-from doom_util import v_wrap, tracker, get_dist, \
+from boot_utils.doom_util import v_wrap, tracker, get_dist, \
     in_center3, tracker2, to_center, to_border, breaker, record_boot, helper
 import torch.multiprocessing as mp
-from Nav import Net as nav
-from ppo_util import Agent
+from boot_utils.Nav import Net as nav
+from boot_utils.ppo_util import Agent
 
 import numpy as np
 from viz_tasks15 import SailonViz as SViz

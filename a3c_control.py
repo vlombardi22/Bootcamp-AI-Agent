@@ -4,11 +4,11 @@ The most simple implementation for continuous action.
 View more on my Chinese tutorial page [莫烦Python](https://morvanzhou.github.io/).
 """
 import torch
-from doom_util import v_wrap, push_and_pull, record_base, tracker, get_dist, break_ammo, \
+from boot_utils.doom_util import v_wrap, push_and_pull, record_base, tracker, get_dist, break_ammo, \
     break_health, get_angle, h_check
 import torch.multiprocessing as mp
-from shared import SharedAdam
-from Nav import Net as nav
+from boot_utils.shared import SharedAdam
+from boot_utils.Nav import Net as nav
 
 import numpy as np
 from viz_tasks15 import SailonViz as SViz

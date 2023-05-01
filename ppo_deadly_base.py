@@ -5,8 +5,8 @@ View more on my Chinese tutorial page [莫烦Python](https://morvanzhou.github.i
 """
 
 import torch.multiprocessing as mp
-from hall_skills import get_dist, get_angle, get_armor, fight, record_dead, get_ammo, navigate, gunner, record_fell
-from ppo_util import Agent
+from boot_utils.hall_skills import get_dist, get_angle, get_armor, fight, record_dead, get_ammo, navigate, gunner, record_fell
+from boot_utils.ppo_util import Agent
 import csv
 import numpy as np
 import vizdoom as vzd

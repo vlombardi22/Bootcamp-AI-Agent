@@ -11,7 +11,7 @@ from keras.optimizers import Adam
 from rl.agents.dqn import DQNAgent
 from rl.policy import BoltzmannQPolicy
 from rl.memory import SequentialMemory
-from hall_skills import get_dist, get_angle
+from boot_utils.hall_skills import get_dist, get_angle
 import vizdoom as vzd
 
 TRAIN_EPS = 1000

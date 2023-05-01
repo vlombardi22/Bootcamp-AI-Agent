@@ -2,7 +2,7 @@
 import numpy as np
 import sys
 import random
-from test_handler import TestHandler
+from boot_utils.test_handler import TestHandler
 import csv
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Flatten

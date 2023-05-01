@@ -5,12 +5,12 @@ View more on my Chinese tutorial page [莫烦Python](https://morvanzhou.github.i
 """
 
 import torch
-from myutil import v_wrap, push_and_pull
+from boot_utils.myutil import v_wrap, push_and_pull
 
 import torch.multiprocessing as mp
-from hall_skills import get_dist, get_angle, get_armor, fight, record_dead, navigate
-from shared import SharedAdam
-from Nav import Net as nav
+from boot_utils.hall_skills import get_dist, get_angle, get_armor, fight, record_dead, navigate
+from boot_utils.shared import SharedAdam
+from boot_utils.Nav import Net as nav
 
 import csv
 import numpy as np

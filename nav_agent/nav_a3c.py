@@ -5,13 +5,12 @@ View more on my Chinese tutorial page [莫烦Python](https://morvanzhou.github.i
 """
 
 import torch
-from myutil import v_wrap, push_and_pull, record_nav, tracker, get_dist, target_in_room, navigate, get_angle
+from boot_utils.myutil import v_wrap, push_and_pull, record_nav, tracker, get_dist, target_in_room, navigate, get_angle
 import torch.multiprocessing as mp
-from shared import SharedAdam
+from boot_utils.shared import SharedAdam
 import matplotlib.pyplot as plt
 
-#from Nav2 import Net
-from Nav import Net
+from boot_utils.Nav import Net
 import numpy as np
 from viz_nav import SailonViz as SViz
 import random
