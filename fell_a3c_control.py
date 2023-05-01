@@ -12,7 +12,7 @@ from shared import SharedAdam
 
 from Nav import Net as nav
 import numpy as np
-from viz_task45 import SailonViz as SViz
+from viz_tasks15 import SailonViz as SViz
 
 import random
 import os
@@ -140,7 +140,7 @@ class Worker(mp.Process):
 
             level = 208
 
-        self.game = SViz(use_mock, use_novel, level, False, seed, difficulty, use_seed=self.use_seed)
+        self.game = SViz(use_mock, use_novel, level, False, seed, difficulty, use_seed=self.use_seed, task=4, base=True)
 
     # player shoot enemy
     def check_shoot(self, state, walls):

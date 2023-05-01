@@ -11,7 +11,7 @@ from shared import SharedAdam
 from Nav import Net as nav
 
 import numpy as np
-from viz_task123 import SailonViz as SViz
+from viz_tasks15 import SailonViz as SViz
 import random
 import os
 import csv
@@ -129,9 +129,9 @@ class Worker(mp.Process):
         level = 0
         difficulty = 'easy'
 
-        self.game_combat = SViz(use_mock, use_novel, level, False, seed, difficulty, use_seed=self.use_seed, task=1)
-        self.game_ammo = SViz(use_mock, use_novel, level, False, seed, difficulty, use_seed=self.use_seed, task=2)
-        self.game_health = SViz(use_mock, use_novel, level, False, seed, difficulty, use_seed=self.use_seed, task=3)
+        self.game_combat = SViz(use_mock, use_novel, level, False, seed, difficulty, use_seed=self.use_seed, task=1, base=True)
+        self.game_ammo = SViz(use_mock, use_novel, level, False, seed, difficulty, use_seed=self.use_seed, task=2, base=True)
+        self.game_health = SViz(use_mock, use_novel, level, False, seed, difficulty, use_seed=self.use_seed, task=3, base=True)
 
     # player shoot enemy
     def check_shoot(self, state, walls):
