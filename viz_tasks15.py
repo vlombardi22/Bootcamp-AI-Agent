@@ -99,32 +99,32 @@ class SailonViz:
         scenario = ""
         if task <= 1:
             if base:
-                scenario = "phase_4_cwall.wad"
+                scenario = "scenarios/phase_4_cwall.wad"
             else:
-                scenario = "phase_4_combat.wad"
+                scenario = "scenarios/phase_4_combat.wad"
 
         if task == 2:
             if base:
-                scenario = "phase_4_awall.wad"
+                scenario = "scenarios/phase_4_awall.wad"
             else:
-                scenario = "phase_4_ammo.wad"
+                scenario = "scenarios/phase_4_ammo.wad"
         elif task == 3:
             if base:
-                scenario = "phase_4_hwall.wad"
+                scenario = "scenarios/phase_4_hwall.wad"
             else:
-                scenario = "phase_4_health.wad"
+                scenario = "scenarios/phase_4_health.wad"
         elif task > 3:
 
             if self.level == 208:
                 if base:
-                    scenario = "phase_4_twall5.wad"
+                    scenario = "scenarios/phase_4_twall5.wad"
                 else:
-                    scenario = "phase_4_test5.wad"
+                    scenario = "scenarios/phase_4_test5.wad"
             else:
                 if base:
-                    scenario = "phase_4_twall4.wad"
+                    scenario = "scenarios/phase_4_twall4.wad"
                 else:
-                    scenario = "phase_4_test.wad"
+                    scenario = "scenarios/phase_4_test.wad"
         game.set_doom_scenario_path(package_path + scenario)
 
         # Set in game limit

@@ -480,8 +480,7 @@ if __name__ == "__main__":
     x = 0
     rang = 2
     test_ep = 10
-    nav_room = nav(13, 6)
-    nav_item = nav(13, 6)
+
 
 
     is_load = "N"

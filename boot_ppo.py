@@ -577,8 +577,8 @@ def train_agent(base_file, test_results, my_res, raw_file, tdir):
     nav_room = nav(13, 6)
     nav_object = nav(13, 6)
 
-    nav_room.load_state_dict(torch.load("nav_room.txt"))
-    nav_object.load_state_dict(torch.load("nav_item.txt"))
+    nav_room.load_state_dict(torch.load("weights/nav_room.txt"))
+    nav_object.load_state_dict(torch.load("weights/nav_item.txt"))
     l = "N"
     if IS_TEST:
         l = "Y"

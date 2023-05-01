@@ -532,8 +532,8 @@ def train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_fi
     nav_room = nav(13, 6)
     nav_object = nav(13, 6)
 
-    nav_room.load_state_dict(torch.load("nav_room.txt"))
-    nav_object.load_state_dict(torch.load("nav_item.txt"))
+    nav_room.load_state_dict(torch.load("weights/nav_room.txt"))
+    nav_object.load_state_dict(torch.load("weights/nav_item.txt"))
     my_jump = mp.Queue()
     my_asym = mp.Queue()
     my_info = mp.Queue()

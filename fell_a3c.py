@@ -642,8 +642,8 @@ if __name__ == "__main__":
     nav_room = nav(13, 6)
     nav_item = nav(13, 6)
 
-    nav_room.load_state_dict(torch.load("nav_room.txt"))
-    nav_item.load_state_dict(torch.load("nav_item.txt"))
+    nav_room.load_state_dict(torch.load("weights/nav_room.txt"))
+    nav_item.load_state_dict(torch.load("weights/nav_item.txt"))
     is_load = "N"
     is_a2c = False
     if isa2c == "Y":

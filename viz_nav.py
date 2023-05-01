@@ -87,7 +87,7 @@ class SailonViz:
         game = vzd.DoomGame()
         package_path = ''  # self.path + "vizdoom/"
         game.load_config(package_path + 'basic.cfg')
-        scenario = "phase_2.wad"
+        scenario = "scenarios/phase_2.wad"
 
         game.set_doom_scenario_path(package_path + scenario)
 

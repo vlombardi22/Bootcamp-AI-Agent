@@ -480,8 +480,6 @@ if __name__ == "__main__":
     start_index = 0
     agent_count = 2
     test_ep = 10
-    nav_room = nav(13, 6)
-    nav_item = nav(13, 6)
 
 
 
