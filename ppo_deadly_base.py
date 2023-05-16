@@ -1,32 +1,27 @@
-"""
-Reinforcement Learning (A3C) using Pytroch + multiprocessing.
-The most simple implementation for continuous action.
-View more on my Chinese tutorial page [莫烦Python](https://morvanzhou.github.io/).
-"""
 
 import torch.multiprocessing as mp
-from boot_utils.hall_skills import get_dist, get_angle, get_armor, fight, record_dead, get_ammo, navigate, gunner, record_fell
+from boot_utils.hall_skills import get_dist, get_angle, gunner, \
+    record_fell
 from boot_utils.ppo_util import Agent
 import csv
 import numpy as np
 import vizdoom as vzd
 import random
 import os
+import sys
 
 os.environ["OMP_NUM_THREADS"] = "4"
 
 UPDATE_GLOBAL_ITER = 10
 GAMMA = 0.97
 MAX_EP = 1000
-HIDDEN_SIZE = 32  # 128
-H_SIZE = 16  # 64
+HIDDEN_SIZE = 32
+H_SIZE = 16
 IS_CONTROL = False
 IS_TEST = False
-DEBUG = False
 
 STATE_SIZE = 22
 ACTION_SIZE = 7
-
 
 
 def break_armor(armor, player):
@@ -73,38 +68,35 @@ def break_enemy(enemies, player):
 
         angle, _ = get_angle(m_enemy, player, 0.0)
         angle = angle * 180 / np.pi
-        t = 1
+        enemy_type = 1
         if m_enemy.name == "ShotgunGuy":
-            t = 2
+            enemy_type = 2
         elif m_enemy.name == "ChaingunGuy":
-            t = 3
-        strat_enemy = [m_enemy.position_x, m_enemy.position_y, t, get_dist(m_enemy, player),
+            enemy_type = 3
+        strat_enemy = [m_enemy.position_x, m_enemy.position_y, enemy_type, get_dist(m_enemy, player),
                        angle]
         # print(min_dist)
         if min_dist > 250.0:
-
             m_enemy = None
     return m_enemy, strat_enemy
 
 
 class Worker():
 
-    def __init__(self, gnet, global_ep, global_ep_r, res_queue, name, global_kills,
-                 global_health, global_ammo, my_queue, p_queue, my_p2, info_list):
+    def __init__(self, strategist, global_ep, global_ep_r, res_queue, name, global_kills,
+                 global_health, global_ammo, my_queue, my_jump, my_asym, info_list):
 
         self.name = 'w%02i' % name
         self.g_ep, self.g_ep_r, self.res_queue = global_ep, global_ep_r, res_queue
-        self.gnet = gnet
+        self.strategist = strategist
         self.g_k = global_kills
         self.g_h = global_health
         self.g_a = global_ammo
 
-        self.my_q = my_queue
+        self.test_results = my_queue
         self.info_list = info_list
-        self.my_ju = p_queue
-        self.my_as = my_p2
-
-
+        self.my_jump = my_jump
+        self.my_asym = my_asym
 
         self.seed_list = []
         if IS_TEST:
@@ -112,8 +104,6 @@ class Worker():
             random.seed(seed)
             np.random.seed(seed)
             self.seed_list = [np.random.randint(0, 1000) for i in range(MAX_EP)]
-
-
 
         self.game = vzd.DoomGame()
         self.step_limit = 1500
@@ -173,7 +163,6 @@ class Worker():
         # Makes episodes start after 10 tics (~after raising the weapon)
         self.game.set_episode_start_time(10)
 
-
         self.game.set_window_visible(False)
 
         # Sets the living (for each move) to -1
@@ -188,7 +177,7 @@ class Worker():
         # Initialize the game. Further configuration won't take any effect from now on.
         self.game.init()
 
-    def breaker(self, state, temp):
+    def breaker(self, state):
         objects = state.objects
         player = None
         armor = None
@@ -224,11 +213,9 @@ class Worker():
                       e_count] + strat_enemy + [
                          i_count] + strat_item + [a_count] + strat_armor + [0.0]
 
-
         c_act = 7
         if target:
             c_act = gunner(target, player)
-
 
         return np.asarray(sensor_vec), e_count, c_act, health, ammo, dist
 
@@ -239,15 +226,13 @@ class Worker():
                    [False, False, True, False, False, False, False], [False, False, False, True, False, False, False],
                    [False, False, False, False, True, False, False], [False, False, False, False, False, True, False],
                    [False, False, False, False, False, False, True], [False, False, False, False, False, False, False]]
-        actions2 = ['left', 'right', 'shoot', 'forward', 'backward', 'turn_left', 'turn_right', 'nothing']
         v_count = 0
-        i3 = STATE_SIZE - 1
-
+        combat_index = STATE_SIZE - 1
 
         ep = 0
         task_var = 0.0
-        r_list = []
-        r_list2 = []
+        pref_list = []
+        reward_list = []
         t_kills = 0
         my_av = 0.0
         while (not IS_TEST and self.g_ep.value < MAX_EP) or (IS_TEST and ep < MAX_EP):
@@ -265,7 +250,7 @@ class Worker():
             kills = 0
             self.total_target_count = 0
             state_vec, e_count, c_act, health, ammo, o_dist = self.breaker(
-                state, True)
+                state)
             # initial state_vec
 
             t_count = e_count
@@ -274,13 +259,10 @@ class Worker():
 
             a_count = 0
 
-
-
             if c_act < 7:
-                state_vec[i3] = 1
+                state_vec[combat_index] = 1
 
-
-            ep_rr = 0.0
+            ep_reward = 0.0
             ep += 1
             tk = 0
             fired = 0
@@ -288,17 +270,12 @@ class Worker():
             while True:
                 step += 1
                 reward = -1
-                my_act2 = 'nothing'
 
-                act, prob, val = self.gnet.choose_action(state_vec)
+                act, prob, val = self.strategist.choose_action(state_vec)
 
                 my_act = actions[act]
-                my_act2 = actions2[act]
 
-                skiprate = 1
-
-
-                rew = self.game.make_action(my_act, skiprate)
+                rew = self.game.make_action(my_act, 1)
                 victory = False
                 new_state = self.game.get_state()
                 done = self.game.is_episode_finished()
@@ -311,12 +288,9 @@ class Worker():
 
                 reward += rew
 
-
                 nstate_vec = []
                 if not done:
-                    nstate_vec, e_temp, c_act, h, n_ammo, dist = self.breaker(new_state, False)
-
-
+                    nstate_vec, e_temp, c_act, h, n_ammo, dist = self.breaker(new_state)
 
                     if dist < o_dist:
                         reward += 0.5
@@ -326,12 +300,11 @@ class Worker():
                         fired += 1
                     if e_temp < e_count:
 
-                        if my_act2 == "shoot":
+                        if act == 2:
                             reward += 15
 
                             kills += 1
                             tk += 1
-
 
                             fired = 0
                         else:
@@ -342,7 +315,6 @@ class Worker():
                     if h < health:
                         reward -= 1.0
 
-
                     health = h
 
                     if n_ammo > ammo:
@@ -350,7 +322,7 @@ class Worker():
 
                     ammo = n_ammo
                     if c_act < 7:
-                        nstate_vec[i3] = 1
+                        nstate_vec[combat_index] = 1
 
 
                 else:
@@ -370,30 +342,28 @@ class Worker():
                         self.step_limit * self.max_target_count)
                 performance = round(performance, 6)
 
-                ep_rr += reward
-
-
+                ep_reward += reward
 
                 if not IS_TEST:
                     buffer_a.append(act)
                     buffer_s.append(state_vec)
                     buffer_r.append(reward)
-                    self.gnet.remember(state_vec, act, prob, val, reward, done)
+                    self.strategist.remember(state_vec, act, prob, val, reward, done)
 
                 if total_step % UPDATE_GLOBAL_ITER == 0 or done:  # update global and assign to local net
                     # sync
 
                     if not IS_TEST:
-                        self.gnet.learn()
+                        self.strategist.learn()
 
                     buffer_s, buffer_a, buffer_r = [], [], []
 
                     if done:  # done and print information
                         t_kills += kills
                         if IS_TEST:
-                            r_list.append(performance)
-                            r_list2.append(ep_rr)
-                            self.info_list.put([ep, ep_rr, step, performance, kills, a_count])
+                            pref_list.append(performance)
+                            reward_list.append(ep_reward)
+                            self.info_list.put([ep, ep_reward, step, performance, kills, a_count])
                             my_av += performance
                             print(
                                 self.name,
@@ -402,10 +372,10 @@ class Worker():
                                 "| Ep_r: %.2f" % (my_av / ep), " indiv: %.2f" % performance, "task6")
                         else:
 
-                            self.info_list.put([self.g_ep.value, ep_rr, step, performance, kills, a_count])
+                            self.info_list.put([self.g_ep.value, ep_reward, step, performance, kills, a_count])
                             record_fell(self.g_ep, self.g_ep_r, performance, self.res_queue, self.name, t_count, kills,
-                                    victory,
-                                    dead, a_count, task_var, self.my_ju, self.my_as)
+                                        victory,
+                                        dead, a_count, task_var, self.my_jump, self.my_asym)
 
                         break
 
@@ -413,37 +383,31 @@ class Worker():
                 state = new_state
                 total_step += 1
 
-
         if IS_TEST:
-            self.my_q.put([v_count, np.average(r_list2), np.average(r_list)])
-        self.my_ju.put(None)
-        self.my_as.put(None)
+            self.test_results.put([v_count, np.average(reward_list), np.average(pref_list)])
+        self.my_jump.put(None)
+        self.my_asym.put(None)
         self.info_list.put(None)
         self.res_queue.put(None)
 
 
-def main(f, my_q, fname, my_r, f2, my_q2, f3):
-    N = 20
+def train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_file, bdir, tdir):
     batch_size = 5
     n_epochs = 4
     alpha = 0.0003
     myshape = np.zeros(STATE_SIZE)
 
-    gnet = Agent(n_actions=ACTION_SIZE,input_dims=myshape.shape, batch_size=batch_size, alpha=alpha, n_epochs=n_epochs)
-
+    strategist = Agent(n_actions=ACTION_SIZE, input_dims=myshape.shape, batch_size=batch_size, alpha=alpha, n_epochs=n_epochs)
 
     my_jump = mp.Queue()
     my_asym = mp.Queue()
     my_info = mp.Queue()
     l = "N"
-    stric = False
     if IS_TEST:
         l = "Y"
-        stric = True
 
     if l == "Y":
-        gnet.load_weights(f, stric)
-
+        strategist.load_weights(base_file, bdir)
 
     global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
 
@@ -459,8 +423,9 @@ def main(f, my_q, fname, my_r, f2, my_q2, f3):
     if mp.cpu_count() < 6:
         print("cpu alert")
         exit()
-    worker = Worker(gnet,  global_ep, global_ep_r, res_queue, 0, global_kills, global_health, global_ammo, my_q, my_jump, my_asym,
-               my_info)
+    worker = Worker(strategist, global_ep, global_ep_r, res_queue, 0, global_kills, global_health, global_ammo, test_results, my_jump,
+                    my_asym,
+                    my_info)
     worker.run()
     res = []  # record episode reward to plot
     m_jump = 0
@@ -498,91 +463,94 @@ def main(f, my_q, fname, my_r, f2, my_q2, f3):
             myinfo.append(p)
         else:
             break
-    with open(f3, 'w', newline='') as csvfile:
+    with open(raw_file, 'w', newline='') as csvfile:
         # creating a csv writer object
         csvwriter = csv.writer(csvfile)
 
         csvwriter.writerows(myinfo)
     csvfile.close()
-    if not IS_TEST:
-        print("kills:", global_kills.value)
-        print("health:", global_health.value)
-        print("ammo:", global_ammo.value)
 
 
     if not IS_TEST:
-        gnet.save_weights(f2)
+        strategist.save_weights(new_file, tdir)
 
-        my_r2 = np.add(my_r, res)
+        my_r2 = np.add(my_res, res)
 
-        my_q3 = my_q2
+        my_q3 = train_metrics
         my_q3.append([m_jump, m_asym])
         return True, my_r2
 
-
-    return True, my_r
+    return True, my_res
 
 
 if __name__ == "__main__":
-    x = 0
-    rang = 30
-    test_ep = 1000
+    """
+    n = len(sys.argv)
+    control = "Y"
+    if n == 2:
+        control = sys.argv[1]
+    else:
+        print("invalid arguments need control, task")
+    """
+    starting_index = 0
+    num_agents = 2
+    test_ep = 10
 
-    control = "N"
-    testing = "N"
-    is_load = "N"
+    testing = "N"  # input("test Y or N:")
+    is_load = "N"  # input("continue Y or N:")
 
-    if control == "Y" or control == "y":
-        IS_CONTROL = True
+    is_control = True
     if testing == "Y" or testing == "y":
         IS_TEST = True
 
     if IS_TEST:
         MAX_EP = test_ep
 
-    my_q = mp.Queue()
-    my_q2 = []
-    my_r = np.zeros([MAX_EP])
-    pref = "ppoboot_"
-    if IS_CONTROL:
-        pref = "ppocontrol_"
+    test_results = mp.Queue()
+    my_res = np.zeros([MAX_EP])
+    train_metrics = []
+    fname = "ppobase_"
 
-    for ind in range(rang):
-        n = ind + x
-        f0 = pref + str(n)
-        f1 = f0 + ".txt"
-        f2 = pref + "task6_" + str(n) + ".txt"
-        f3 = f0 + "raw.csv"
-        fname = f0 + ".png"
-        if IS_TEST and not os.path.exists(f1):
-            print("file:", f1, "does not exist")
-            break
-        print(f1)
-        temp, my_r = main(f1, my_q, fname, my_r,f2, my_q2, f3)
+    tdir = "task6"
 
+    fname2 = tdir + "/" + fname
+
+    for ind in range(num_agents):
+        n = ind + starting_index
+
+        f_temp = fname + "task123_" + str(n)
+        f_temp2 = fname2 + tdir + str(n)
+        base_file = f_temp + ".txt"
+        new_file = fname + tdir + "_" + str(n) + ".txt"
+        raw_file = f_temp2 + "raw.csv"
+
+        my_res = train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_file, "tasks123", tdir)
 
     IS_TEST = True
 
     if IS_TEST:
         MAX_EP = test_ep
-    my_q = mp.Queue()
-    f2 = "dud.txt"
-    for ind in range(rang):
-        n = ind + x
-        f0 = pref + str(n)
-        f1 = pref + "task6_" + str(n) + ".txt"
-        fname = f0 + ".png"
-        f3 = f0 + "rawtest.csv"
+    test_results = mp.Queue()
+    new_file = "dud.txt"
+    for ind in range(num_agents):
+        n = ind + starting_index
 
-        temp, _ = main(f1, my_q, fname, my_r, f2, my_q2,f3)
+        f_temp = fname2 + str(n)
+        base_file = fname + tdir + "_" + str(n) + ".txt"
+        raw_file = f_temp + tdir + "_rawtest.csv"
+
+        print(base_file)
+        _ = train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_file, tdir, tdir)
     # name of csv file
-    filename = "boot_ppo_task6.csv"
+    filename = "base_task6_ppo.csv"
+    outname = "base_task6_ppo.txt"
+    first_line = "base\n"
 
-    if IS_CONTROL:
-        filename = "control_ppo_task6.csv"
-
+    filename = "results/" + filename
+    outname = "results/" + outname
     if is_load == "Y" or is_load == "y":
         with open(filename, 'r') as file:
+
             csvFile = csv.reader(file)
             header = True
             # displaying the contents of the CSV file
@@ -590,10 +558,10 @@ if __name__ == "__main__":
             for lines in csvFile:
                 if lines and header:
                     h = np.asarray(lines, dtype="float64")
-                    rang += h[0]
+                    num_agents += h[0]
                 if lines and not header:
                     l = np.asarray(lines, dtype="float64")
-                    my_r = np.add(my_r, l)
+                    my_res = np.add(my_res, l)
 
                 header = False
 
@@ -602,35 +570,31 @@ if __name__ == "__main__":
     with open(filename, 'w', newline='') as csvfile:
         # creating a csv writer object
         csvwriter = csv.writer(csvfile)
-        head = np.zeros([len(my_r)])
+        head = np.zeros([len(my_res)])
 
-        head[0] = rang
-        rows = [head, my_r]
+        head[0] = num_agents
+        rows = [head, my_res]
 
         csvwriter.writerows(rows)
     csvfile.close()
 
-    my_q.put(None)
+    test_results.put(None)
 
-    f = open("myout_task6_ppo.txt", "w")
-    if IS_CONTROL:
-        f.write("control\n")
-    else:
-        f.write("boot\n")
+    f = open(outname, "w")
+
+    f.write(first_line)
+    f.write("wins, raw, pref\n")
     while True:
-        r = my_q.get()
+        r = test_results.get()
         if r is not None:
-            print(r)
             mystr = str(r) + "\n"
             f.write(mystr)
 
         else:
             break
-    f.write("other\n")
-    print("other")
-    for i in my_q2:
+    f.write("jump, asym\n")
+    for i in train_metrics:
         mystr2 = str(i) + "\n"
         f.write(mystr2)
-        print(i)
     f.close()
     print("done")

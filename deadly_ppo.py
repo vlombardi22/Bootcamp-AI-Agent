@@ -85,11 +85,11 @@ def break_enemy(enemies, player):
 
 class Worker():
 
-    def __init__(self, gnet, global_ep, global_ep_r, res_queue, name, test_results, my_jump, my_asym, info_list):
+    def __init__(self, strategist, global_ep, global_ep_r, res_queue, name, test_results, my_jump, my_asym, info_list):
 
         self.name = 'w%02i' % name
         self.g_ep, self.g_ep_r, self.res_queue = global_ep, global_ep_r, res_queue
-        self.strategist = gnet
+        self.strategist = strategist
 
         self.test_results = test_results
         self.info_list = info_list
@@ -329,7 +329,6 @@ class Worker():
 
                             my_act = actions[7]
 
-                # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
 
@@ -354,7 +353,6 @@ class Worker():
                     nstate_vec, e_temp, r_act, c_act, n_act, m_act, h, n_ammo, dist = self.breaker(new_state)
 
 
-                    # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                     if dist < o_dist and act > 0:
                         reward += 0.5
 

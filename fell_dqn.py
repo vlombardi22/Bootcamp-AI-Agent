@@ -7,7 +7,7 @@ import csv
 from keras.models import Sequential
 from keras.layers import Dense, Activation, Flatten
 from keras.optimizers import Adam
-
+from boot_utils.dqn_util import action_trans, get_angle, intersect
 from rl.agents.dqn import DQNAgent
 from rl.policy import BoltzmannQPolicy
 from rl.memory import SequentialMemory
@@ -18,6 +18,9 @@ IS_TEST = False
 
 
 # Wrapper class for keras-rl dqn learning
+
+
+
 class CWrapper:
 
     def __init__(self, novelty, difficulty, my_res, my_jump, my_asym, my_info, seed=97, tdir="4"):
@@ -143,7 +146,7 @@ class CWrapper:
         :param action:
         :return:
         """
-        obs, pref, done, victory, dead = self.env.test.step(self.action_trans(action))
+        obs, pref, done, victory, dead = self.env.test.step(action_trans(action))
         task = self.env.test.get_task()
 
         # Health
@@ -235,29 +238,6 @@ class CWrapper:
         self.walls = ob['walls']
         return self.transform(ob)
 
-    def action_trans(self, action):
-        """
-        turns actions into label
-        :param action:
-        :return:
-        """
-        action_name = ""
-        if action == 0:
-            action_name = 'left'
-        elif action == 1:
-            action_name = 'right'
-        elif action == 2:
-            action_name = 'backward'
-        elif action == 3:
-            action_name = 'forward'
-        elif action == 4:
-            action_name = 'turn_left'
-        elif action == 5:
-            action_name = 'turn_right'
-        elif action == 6:
-            action_name = 'shoot'
-        return action_name
-
     # player shoot enemy
     def check_shoot(self, state):
         """
@@ -267,10 +247,10 @@ class CWrapper:
         """
         shoot = False
         for ind, val in enumerate(state['enemies']):
-            angle, sign = self.get_angle(val, state['player'])
+            angle, sign = get_angle(val, state['player'])
             if angle < np.pi / 8:
                 for wall in self.walls:
-                    if self.intersect({'x': state['player']['x_position'], 'y': state['player']['y_position']},
+                    if intersect({'x': state['player']['x_position'], 'y': state['player']['y_position']},
                                       {'x': val['x_position'], 'y': val['y_position']},
                                       {'x': wall['x1'], 'y': wall['y1']},
                                       {'x': wall['x2'], 'y': wall['y2']}):
@@ -280,48 +260,8 @@ class CWrapper:
         return shoot
 
     # Utility function for getting angle from B-direction to A
-    def get_angle(self, player, enemy):
-        """
-        get angle
-        :param player:
-        :param enemy:
-        :return:
-        """
-        pl_x = player['x_position']
-        pl_y = player['y_position']
-
-        en_x = enemy['x_position']
-        en_y = enemy['y_position']
-        en_ori = enemy['angle'] * 2 * np.pi / 360
-
-        # Get angle between player and enemy
-        # Convert enemy ori to unit vector
-        v1_x = np.cos(en_ori)
-        v1_y = np.sin(en_ori)
-
-        enemy_vector = np.asarray([v1_x, v1_y]) / np.linalg.norm(np.asarray([v1_x, v1_y]))
-
-        # If its buggy throw random value out
-        if np.linalg.norm(np.asarray([pl_x - en_x, pl_y - en_y])) == 0:
-            return np.random.rand() * 3.14
-
-        enemy_face_vector = np.asarray([pl_x - en_x, pl_y - en_y]) / np.linalg.norm(
-            np.asarray([pl_x - en_x, pl_y - en_y]))
-
-        angle = np.arccos(np.clip(np.dot(enemy_vector, enemy_face_vector), -1.0, 1.0))
-
-        sign = np.sign(np.linalg.det(
-            np.stack((enemy_vector[-2:], enemy_face_vector[-2:]))
-        ))
-
-        return angle, sign
-
-    def ccw(self, A, B, C):
-        return (C['y'] - A['y']) * (B['x'] - A['x']) > (B['y'] - A['y']) * (C['x'] - A['x'])
 
     # Return true if line segments AB and CD intersect
-    def intersect(self, A, B, C, D):
-        return self.ccw(A, C, D) != self.ccw(B, C, D) and self.ccw(A, B, C) != self.ccw(A, B, D)
 
 
 if __name__ == "__main__":

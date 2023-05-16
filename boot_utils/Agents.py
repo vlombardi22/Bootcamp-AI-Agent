@@ -138,7 +138,7 @@ class Agents:
                 else:
                     action = TLEFT
 
-            # Send ai action
+            # Send AI action
             commands.append([ind, action])
 
         return commands

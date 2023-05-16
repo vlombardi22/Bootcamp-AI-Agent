@@ -20,6 +20,64 @@ IS_TEST = False
 
 
 # Wrapper class for keras-rl dqn learning
+def break_armor(armor, player):
+    if not armor:
+        return [0.0, 0.0, -1.0, 0.0], 0.0
+
+    angle, _ = get_angle(armor, player, 0.0)
+    angle = angle * 180 / np.pi
+    dist = get_dist(player, armor)
+    strat_armor = [armor.position_x, armor.position_y, dist, angle]
+    return strat_armor, dist
+
+
+def break_item(item, player):
+    if len(item) == 0:
+        return [0.0, 0.0, -1.0, 0.0], None
+    min_dist = 100000
+    m_item = None
+    for a in item:
+        dist = get_dist(player, a)
+        if min_dist > dist:
+            min_dist = dist
+            m_item = a
+    angle, _ = get_angle(m_item, player, 0.0)
+    angle = angle * 180 / np.pi
+    strat_ammo = [m_item.position_x, m_item.position_y, get_dist(m_item, player), angle]
+    return strat_ammo, m_item
+
+
+def break_enemy(enemies, player):
+    strat_enemy = []
+    min_dist = 10000
+    m_enemy = None
+    for e in enemies:
+        dist = get_dist(player, e)
+
+        if min_dist > dist:
+            min_dist = dist
+            m_enemy = e
+    if not m_enemy:
+        strat_enemy = [0.0, 0.0, 0.0, -1.0, 0.0]
+    else:
+
+        angle, _ = get_angle(m_enemy, player, 0.0)
+        angle = angle * 180 / np.pi
+        e_type = 1
+        if m_enemy.name == "ShotgunGuy":
+            e_type = 2
+        elif m_enemy.name == "ChaingunGuy":
+            e_type = 3
+        strat_enemy = [m_enemy.position_x, m_enemy.position_y, e_type, get_dist(m_enemy, player),
+                       angle]
+        if min_dist > 250.0:
+
+            m_enemy = None
+    return m_enemy, strat_enemy
+
+
+
+
 class CWrapper:
 
     def __init__(self, my_res, my_jump, my_asym, my_info, seed=97):
@@ -135,59 +193,6 @@ class CWrapper:
         self.metrics[2] = float(self.metrics[2] / TEST_EPS)
         return self.metrics
 
-    def break_armor(self, armor, player):
-        if not armor:
-            return [0.0, 0.0, -1.0, 0.0], 0.0
-
-        angle, _ = get_angle(armor, player, 0.0)
-        angle = angle * 180 / np.pi
-        dist = get_dist(player, armor)
-        strat_armor = [armor.position_x, armor.position_y, dist, angle]
-        return strat_armor, dist
-
-    def break_item(self, item, player):
-        if len(item) == 0:
-            return [0.0, 0.0, -1.0, 0.0], None
-        min_dist = 100000
-        m_item = None
-        for a in item:
-            dist = get_dist(player, a)
-            if min_dist > dist:
-                min_dist = dist
-                m_item = a
-        angle, _ = get_angle(m_item, player, 0.0)
-        angle = angle * 180 / np.pi
-        strat_ammo = [m_item.position_x, m_item.position_y, get_dist(m_item, player), angle]
-        return strat_ammo, m_item
-
-    def break_enemy(self, enemies, player):
-        strat_enemy = []
-        min_dist = 10000
-        m_enemy = None
-        for e in enemies:
-            dist = get_dist(player, e)
-
-            if min_dist > dist:
-                min_dist = dist
-                m_enemy = e
-        if not m_enemy:
-            strat_enemy = [0.0, 0.0, 0.0, -1.0, 0.0]
-        else:
-
-            angle, _ = get_angle(m_enemy, player, 0.0)
-            angle = angle * 180 / np.pi
-            e_type = 1
-            if m_enemy.name == "ShotgunGuy":
-                e_type = 2
-            elif m_enemy.name == "ChaingunGuy":
-                e_type = 3
-            strat_enemy = [m_enemy.position_x, m_enemy.position_y, e_type, get_dist(m_enemy, player),
-                           angle]
-            if min_dist > 250.0:
-
-                m_enemy = None
-        return m_enemy, strat_enemy
-
     def breaker(self, state):
 
         objects = state.objects
@@ -209,7 +214,7 @@ class CWrapper:
                 items.append(o)
 
 
-        target, strat_enemy = self.break_enemy(enemies, player)
+        target, strat_enemy = break_enemy(enemies, player)
 
         e_count = len(enemies)
         a_count = 0
@@ -217,11 +222,11 @@ class CWrapper:
             a_count = 1
         i_count = len(items)
 
-        strat_armor, dist = self.break_armor(armor, player)
+        strat_armor, dist = break_armor(armor, player)
 
         ammo = self.game.get_game_variable(vzd.GameVariable.AMMO2)
 
-        strat_item, clip = self.break_item(items, player)
+        strat_item, clip = break_item(items, player)
         health = self.game.get_game_variable(vzd.GameVariable.HEALTH)
         #c_act = 0 # acts as a sight byt did not help here
         #if target:
@@ -362,25 +367,6 @@ class CWrapper:
         self.dist = dist
         self.total_target_count = 0
         return ob
-
-    def action_trans(self, action):
-        action_name = ""
-        if action == 0:
-            action_name = 'left'
-        elif action == 1:
-            action_name = 'right'
-        elif action == 2:
-            action_name = 'backward'
-        elif action == 3:
-            action_name = 'forward'
-        elif action == 4:
-            action_name = 'turn_left'
-        elif action == 5:
-            action_name = 'turn_right'
-        elif action == 6:
-            action_name = 'shoot'
-        return action_name
-
 
 
 if __name__ == "__main__":
