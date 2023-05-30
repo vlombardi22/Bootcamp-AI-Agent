@@ -19,7 +19,7 @@ os.environ["OMP_NUM_THREADS"] = "4"
 
 UPDATE_GLOBAL_ITER = 20
 GAMMA = 0.97
-MAX_EP = 2000
+MAX_EP = 10#2000
 HIDDEN_SIZE = 32
 H_SIZE = 16
 
@@ -70,7 +70,6 @@ class my_task():
         use_novel = 0
         level = 0
         difficulty = 'easy'
-
         self.game_combat = SViz(use_mock, use_novel, level, False, seed, difficulty, use_seed=self.use_seed, task=1)
         self.game_ammo = SViz(use_mock, use_novel, level, False, seed, difficulty, use_seed=self.use_seed, task=2)
         self.game_health = SViz(use_mock, use_novel, level, False, seed, difficulty, use_seed=self.use_seed, task=3)
@@ -644,14 +643,15 @@ def train_agent(base_file, test_results, my_res, raw_file, tdir):
 
 if __name__ == "__main__":
     starting_index = 0
-    agent_count = 30
-    test_ep = 1000
+    agent_count = 2#30
+    test_ep = 10#1000
 
     n = len(sys.argv)
     control = "Y"
-    t_dir = "4"
+    #t_dir = "4"
     if n == 2:
         control = sys.argv[1]
+
     else:
         print("invalid arguments need control, task")
 

@@ -60,7 +60,7 @@ class SailonViz:
 
         # Set internal params
 
-        self.step_limit = 1500
+        self.step_limit = 20#1500
         if self.task > 3:
             self.step_limit = 2000
         self.actions = {'nothing': [False, False, False, False, False, 0],
@@ -93,9 +93,10 @@ class SailonViz:
         self.Agents = Agents(self.level, self.difficulty, self.use_mock, temp)
 
         # Make and load game parameters here
+
         game = vzd.DoomGame()
         package_path = ''  # self.path + "vizdoom/"
-        game.load_config(package_path + 'basic.cfg')
+        game.load_config(package_path + 'scenarios/basic.cfg')
         scenario = ""
         if task <= 1:
             if base:
