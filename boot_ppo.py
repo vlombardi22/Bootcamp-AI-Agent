@@ -698,13 +698,13 @@ if __name__ == "__main__":
         n = ind + starting_index
         f_temp = fname + "task123" + "_" + str(n)
         base_file = f_temp + ".txt"
-        raw_file = f_temp + "rawtest.csv"
+        raw_file = tdir + "/" + f_temp + "rawtest.csv"
         temp, _ = train_agent(base_file, test_results, my_res, raw_file, tdir)
     # name of csv file
-    filename = "boot_ppo.csv"
+    filename = "results/boot_ppo.csv"
 
     if IS_CONTROL:
-        filename = "control_ppo.csv"
+        filename = "results/control_ppo.csv"
 
     if is_load == "Y" or is_load == "y":
         with open(filename, 'r') as file:
@@ -737,7 +737,7 @@ if __name__ == "__main__":
 
     test_results.put(None)
 
-    f = open("myout_task123_ppo.txt", "w")
+    f = open("results/myout_task123_ppo.txt", "w")
     if IS_CONTROL:
         f.write("control\n")
     else:
