@@ -6,7 +6,7 @@ import torch.nn as nn
 
 import torch.nn.functional as F
 
-from doom_util import set_init
+from boot_utils.doom_util import set_init
 
 
 
