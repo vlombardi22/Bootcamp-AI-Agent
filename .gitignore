@@ -1,1 +1,4 @@
 .idea/
+_vizdoom.ini
+__pycache__/
+boot_utils/__pycache__/
