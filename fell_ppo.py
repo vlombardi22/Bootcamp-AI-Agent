@@ -12,7 +12,7 @@ import random
 import csv
 
 UPDATE_GLOBAL_ITER = 20
-MAX_EP = 20
+MAX_EP = 10
 
 IS_TEST = False
 

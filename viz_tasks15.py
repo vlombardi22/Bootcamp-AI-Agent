@@ -62,7 +62,7 @@ class SailonViz:
 
         self.step_limit = 20#1500
         if self.task > 3:
-            self.step_limit = 2000
+            self.step_limit = 20 #2000
         self.actions = {'nothing': [False, False, False, False, False, 0],
                         'left': [True, False, False, False, False, 0],
                         'right': [False, True, False, False, False, 0],
@@ -125,7 +125,7 @@ class SailonViz:
                 if base:
                     scenario = "scenarios/phase_4_twall4.wad"
                 else:
-                    scenario = "scenarios/phase_4_test.wad"
+                    scenario = "scenarios/phase_4_test4.wad"
         game.set_doom_scenario_path(package_path + scenario)
 
         # Set in game limit

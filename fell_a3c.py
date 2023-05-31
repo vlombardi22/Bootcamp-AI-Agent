@@ -393,7 +393,6 @@ class Worker(mp.Process):
                 if rotate_count >= 10:  # if the agent starts rotating to much mark it as stuck
                     stuck = True
 
-                # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                 # make action
                 new_state, performance, done, victory, dead = self.game.step(my_act)
 
@@ -406,7 +405,6 @@ class Worker(mp.Process):
                 n_health = int(player['health'])
                 n_ammo = int(player['ammo'])
                 nstate_vec, nnav_vec, e_temp, combat, clip, med, targ_coord, tir, can_kill = breaker(new_state, pillar)
-                # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                 # change patrol_targ to next target in list when agent gets close this causes the agent to move in a rough circle in the central room
                 if get_dist(player, self.patrol_list[patrol_targ]) <= 60.0:
                     patrol_targ += 1

@@ -17,7 +17,7 @@ os.environ["OMP_NUM_THREADS"] = "4"
 
 UPDATE_GLOBAL_ITER = 10
 GAMMA = 0.97
-MAX_EP = 1000
+MAX_EP = 10
 HIDDEN_SIZE = 32
 H_SIZE = 16
 IS_CONTROL = False
@@ -106,9 +106,9 @@ class Worker():
             self.seed_list = [np.random.randint(0, 1000) for i in range(MAX_EP)]
 
         self.game = vzd.DoomGame()
-        self.step_limit = 1500
+        self.step_limit = 50#1500
 
-        self.game.set_doom_scenario_path("../../scenarios/deadly_hall.wad")
+        self.game.set_doom_scenario_path("scenarios/deadly_hall.wad")
         # Sets map to start (scenario .wad files can contain many maps).
         self.game.set_doom_map("map01")
 
@@ -494,15 +494,16 @@ def train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_fi
     my_asym = mp.Queue()
     my_info = mp.Queue()
 
-    strategist.load_weights(base_file, bdir)
 
-    global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
-
+    stric = False
     if IS_TEST:
         print("testing")
+        stric = True
     else:
         print("training")
+    strategist.load_weights(base_file, bdir, stric)
 
+    global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
     worker = Worker(strategist, global_ep, global_ep_r, res_queue, 0,test_results, my_jump, my_asym,
                     my_info)
     worker.run()

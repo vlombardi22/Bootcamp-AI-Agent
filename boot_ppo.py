@@ -736,8 +736,10 @@ if __name__ == "__main__":
     csvfile.close()
 
     test_results.put(None)
-
-    f = open("results/myout_task123_ppo.txt", "w")
+    myout = "results/boot_task123_ppo.txt"
+    if IS_CONTROL:
+        myout = "results/control_task123_ppo.txt"
+    f = open(myout, "w")
     if IS_CONTROL:
         f.write("control\n")
     else:

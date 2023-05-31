@@ -387,7 +387,6 @@ class Worker(mp.Process):
                 act = self.lstrat.choose_action(v_wrap(state_vec[None, :]))
                 r_act, m_act, c_act, n_act, override = self.helm(nav_vec, state, combat, patrol_targ, clip, med, act,
                                                                  targ_coord, tir, p_coord, player, ammo)
-                print(act)
                 if override:
                     over_ride = True
 
@@ -637,9 +636,7 @@ def train_agent(base_file, test_results, my_res, new_file, nav_room, nav_object,
         for
         i in
         range(cp_count)]
-    print("test")
     [w.start() for w in workers]
-    print("test2")
     res = []  # record episode reward to plot
     while True:
         r = res_queue.get()

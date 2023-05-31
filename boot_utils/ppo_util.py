@@ -74,8 +74,23 @@ class ActorNetwork(nn.Module):
 
     def load_checkpoint(self):
         self.load_state_dict(torch.load(self.checkpoint_file))
-    def load_weights(self, name):
-        self.load_state_dict(torch.load(name))
+    def load_weights(self, name, stric=True):
+
+
+        act_full = torch.load(name)
+        act_net = {}
+        if not stric:  # critic layers 1-3 work kind of
+
+            act_net['actor.0.weight'] = act_full['actor.0.weight']
+            act_net['actor.0.bias'] = act_full['actor.0.bias']
+            act_net['actor.2.weight'] = act_full['actor.2.weight']
+            act_net['actor.2.bias'] = act_full['actor.2.bias']
+        else:
+
+            act_net = act_full
+
+
+        self.load_state_dict(act_net, strict=stric)
 
 class CriticNetwork(nn.Module):
     def __init__(self, input_dims, alpha, fc1_dims=32, fc2_dims=16, chkpt_dir='tmp/ppo'):
@@ -106,8 +121,23 @@ class CriticNetwork(nn.Module):
     def load_checkpoint(self):
         self.load_state_dict(torch.load(self.checkpoint_file))
 
-    def load_weights(self, name):
-        self.load_state_dict(torch.load(name))
+    def load_weights(self, name, stric=True):
+
+
+        act_full = torch.load(name)
+        act_net = {}
+        if not stric:  # critic layers 1-3 work kind of
+
+            act_net['critic.0.weight'] = act_full['critic.0.weight']
+            act_net['critic.0.bias'] = act_full['critic.0.bias']
+            act_net['critic.2.weight'] = act_full['critic.2.weight']
+            act_net['critic.2.bias'] = act_full['critic.2.bias']
+        else:
+
+            act_net = act_full
+
+
+        self.load_state_dict(act_net, strict=stric)
 
 class Agent():
     def __init__(self, n_actions, input_dims, gamma=0.99, alpha=0.0003, gae_lambda=0.95, policy_clip=0.1, batch_size=64,
@@ -140,11 +170,13 @@ class Agent():
         self.actor.save_weights(actw)
         self.critic.save_weights(critw)
 
-    def load_weights(self, name, tdir):
+    def load_weights(self, name, tdir, strict=True):
         actw = tdir + "/act_" + name
         critw = tdir + "/crit_" + name
-        self.actor.load_weights(actw)
-        self.critic.load_weights(critw)
+        self.actor.load_weights(actw, strict)
+        self.critic.load_weights(critw, strict)
+
+
 
     def choose_action(self, observation):
 

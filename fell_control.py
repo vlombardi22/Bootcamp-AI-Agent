@@ -3,7 +3,7 @@ Reinforcement Learning (A3C) using Pytroch + multiprocessing.
 The most simple implementation for continuous action.
 View more on my Chinese tutorial page [莫烦Python](https://morvanzhou.github.io/).
 """
-from boot_utils.newutil import record_fell, tracker, get_dist, break_ammo, \
+from boot_utils.doom_util import record_fell, tracker, get_dist, break_ammo, \
     break_health, get_angle, h_check
 
 import torch.multiprocessing as mp
@@ -21,7 +21,6 @@ os.environ["OMP_NUM_THREADS"] = "4"
 UPDATE_GLOBAL_ITER = 20
 MAX_EP = 1000
 
-
 IS_CONTROL = False
 IS_TEST = False
 
@@ -29,23 +28,18 @@ STATE_SIZE = 28
 ACTION_SIZE = 7
 
 
-
 def break_obstacles(items, player):
-    # nav_obst = []
     min_dist = 10000
     m_obst = None
 
     for o in items['obstacle']:
         dist = get_dist(player, o)
 
-        # if target_sighted(o, player):
-        #    ob_list.append(o)
-
         if min_dist > dist:
             min_dist = dist
             m_obst = o
 
-    if not m_obst:  # len(items['obstacle']) <= 0:
+    if not m_obst:
         strat_obst = [0.0, 0.0, -1.0, 0.0]
 
     else:
@@ -57,15 +51,14 @@ def break_obstacles(items, player):
 
 
 def break_enemy(enemies, player):
-    # nav_enemy = []
-    # strat_enemy = []
+
     min_dist = 10000
     m_enemy = None
     elist = {}
-    for e in enemies:  # bookmark e
+    for e in enemies:
         dist = get_dist(player, e)
         elist[int(e['id'])] = h_check(e)
-        if min_dist > dist:  # and target_sighted(e, player):
+        if min_dist > dist:
             min_dist = dist
             m_enemy = e
 
@@ -80,7 +73,7 @@ def break_enemy(enemies, player):
     return strat_enemy, elist
 
 
-def breaker(state, wall):  # bookmark
+def breaker(state):  # bookmark
     enemies = state['enemies']
     items = state['items']
     player = state['player']
@@ -93,11 +86,6 @@ def breaker(state, wall):  # bookmark
     a_count = len(items['ammo'])
     h_count = len(items['health'])
 
-    # nav_trap = break_traps(items, player)
-    # c_act = 0
-    # for e in enemies:
-    #    if gunner(e, player, 0.0, 18):
-    #        c_act = 1
 
     _, strat_ammo = break_ammo(items, player, p_coord, enemies)
     _, strat_health = break_health(items, player, p_coord, enemies)
@@ -105,55 +93,47 @@ def breaker(state, wall):  # bookmark
                   int(player['health']), e_count] + strat_enemy + [a_count] + strat_ammo + [
                      h_count] + strat_health + strat_obst + [0.0, 0, 0]  # wall +[0.0]
 
-    # print(len(sensor_vec))
-    # exit()
 
     return np.asarray(sensor_vec), e_count, e_list
-class Worker():
-    def __init__(self, gnet, global_ep, global_ep_r, res_queue, name, my_queue, p_queue, my_p2, info_list):
 
+
+class Worker():
+    def __init__(self, strategist, global_ep, global_ep_r, res_queue, name, test_results, my_jump, my_asym, info_list):
 
         self.name = 'w%02i' % name
         self.g_ep, self.g_ep_r, self.res_queue = global_ep, global_ep_r, res_queue
-        self.gnet = gnet
+        self.strategist = strategist
 
-        self.my_q = my_queue
-        self.my_ju = p_queue
-        self.my_as = my_p2
+        self.test_results = test_results
+        self.my_jump = my_jump
+        self.my_asym = my_asym
         self.info_list = info_list
-        self.c_list = [{"x_position": 0.0, "y_position": 0.0}, {"x_position": 0.0, "y_position": 458.0},
-                       {"x_position": 0.0, "y_position": -458.0}, {"x_position": 458.0, "y_position": 0.0},
-                       {"x_position": -458.0, "y_position": 0.0},
-                       {"x_position": 0.0, "y_position": 0.0}]
-        self.s_list = [{"x_position": 180.0, "y_position": 0.0}, {"x_position": 0.0, "y_position": 180.0},
-                       {"x_position": -180.0, "y_position": 0}, {"x_position": 0, "y_position": -180.0}]
+        self.room_list = [{"x_position": 0.0, "y_position": 0.0}, {"x_position": 0.0, "y_position": 458.0},
+                          {"x_position": 0.0, "y_position": -458.0}, {"x_position": 458.0, "y_position": 0.0},
+                          {"x_position": -458.0, "y_position": 0.0},
+                          {"x_position": 0.0, "y_position": 0.0}]
+        self.patrol_list = [{"x_position": 180.0, "y_position": 0.0}, {"x_position": 0.0, "y_position": 180.0},
+                            {"x_position": -180.0, "y_position": 0}, {"x_position": 0, "y_position": -180.0}]
 
-        seed = 97  # random.randint(0, 1000)
+        seed = 97
 
         self.seed_list = []
         self.use_seed = False
 
         if IS_TEST:
             self.use_seed = True
-        # print(seed)
         if self.use_seed:
             random.seed(seed)
             np.random.seed(seed)
 
-            # for i in range(MAX_EP):
-            #    self.seed_list.append(np.random.randint(0, 1000))
             self.seed_list = [np.random.randint(0, 1000) for i in range(MAX_EP)]
-        # print(self.seed_list)
-        # print(len(self.seed_list))
-        # exit()
+
         use_mock = 0
         use_novel = 0
         level = 0
         difficulty = 'easy'
 
         self.game = SViz(use_mock, use_novel, level, False, seed, difficulty, use_seed=self.use_seed, task=4, base=True)
-
-
 
     # player shoot enemy
     def check_shoot(self, state, walls):
@@ -209,31 +189,19 @@ class Worker():
     def intersect(self, A, B, C, D):
         return self.ccw(A, C, D) != self.ccw(B, C, D) and self.ccw(A, B, C) != self.ccw(A, B, D)
 
-
     def run(self):  # bookmark
-        wall = [-320.0, -64.0, 320.0, 320.0, 320.0, 320.0, 320.0, 64.0, 320.0, 64.0, -320.0, -320.0, -320.0, -320.0,
-                -320.0, -64.0, 64.0, 64.0, 384.0, 320.0, 64.0, 320.0, 320.0, 320.0, -64.0, -64.0, 320.0, 384.0, -64.0,
-                -320.0, 384.0, 384.0, -320.0, -320.0, 384.0, 512.0, -320.0, 320.0, 512.0, 512.0, 320.0, 320.0, 512.0,
-                384.0, 320.0, 64.0, 384.0, 384.0, -384.0, -384.0, 320.0, 64.0, 320.0, 320.0, -64.0, -320.0, 320.0,
-                384.0, 64.0, 64.0, 384.0, 384.0, 64.0, 320.0, 384.0, 512.0, 320.0, 320.0, 512.0, 512.0, 320.0, -320.0,
-                512.0, 384.0, -320.0, -320.0, 384.0, 384.0, -320.0, -64.0, 384.0, 320.0, -64.0, -64.0, -512.0, -384.0,
-                320.0, 320.0, -64.0, -320.0, -320.0, -320.0, 64.0, 64.0, -320.0, -384.0, 64.0, 320.0, -384.0, -384.0,
-                320.0, 320.0, -384.0, -512.0, 320.0, -320.0, -512.0, -512.0, -320.0, -320.0, -512.0, -384.0, -320.0,
-                -64.0, -384.0, -384.0, -64.0, -64.0, -384.0, -320.0, -384.0, -320.0, 64.0, 64.0, -320.0, -320.0, 64.0,
-                320.0, -320.0, -384.0, -64.0, -64.0, -384.0, -384.0, -64.0, -320.0, -384.0, -512.0, -320.0, -320.0,
-                -512.0, -512.0, -320.0, 320.0]
+
         total_step = 1
         actions = ['left', 'right', 'backward', 'forward', 'shoot', 'turn_left', 'turn_right', 'nothing']
         v_count = 0
 
-        i3 = STATE_SIZE - 1  # 1 # 3
-        i4 = STATE_SIZE - 2  # 3 # 2
-
+        test_index = STATE_SIZE - 1
+        sight_index = STATE_SIZE - 2
 
         task_var = 0.0
-        r_list = np.zeros([MAX_EP])  # []
+        r_list = np.zeros([MAX_EP])
 
-        r_list2 = np.zeros([MAX_EP])  # []
+        r_list2 = np.zeros([MAX_EP])
         turn = 0
         switch = 4
         s = 0
@@ -250,17 +218,14 @@ class Worker():
 
             game = self.game
 
-            # if IS_TEST:
-            #    s = self.seed_list[episode]
-            state = game.reset(s)  # self.seed_list[episode])
+            state = game.reset(s)
 
-            # items = state['items']
             player = state['player']
 
             walls = state['walls']
-            state_vec, e_count, e_list = breaker(state, wall)
+            state_vec, e_count, e_list = breaker(state)
             # initial state_vec
-            # print(len(state_vec))
+
             hp = int(player['health'])
 
             t_count = e_count
@@ -270,28 +235,23 @@ class Worker():
             pl_y = player['y_position']
             ammo = int(player['ammo'])
             a_count = 0
-            s_count = 0
             h_count = 0
 
+            state_vec[test_index] = task_var
+            state_vec[sight_index] = self.check_shoot(state, walls)
 
-            state_vec[i3] = task_var  # 0.0#1.0
-            state_vec[i4] = self.check_shoot(state, walls)
-
-            ep_rr = 0.0
+            ep_reward = 0.0
             while True:
                 step += 1
                 reward = -1
                 fired = False
-                act, prob, val = self.gnet.choose_action(state_vec)
+                act, prob, val = self.strategist.choose_action(state_vec)
 
                 my_act = actions[act]
                 if my_act == "shoot":
                     if ammo > 0:
                         fired = True
 
-
-
-                # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                 new_state, performance, done, victory, dead = game.step(my_act)
 
                 player = new_state['player']
@@ -302,11 +262,7 @@ class Worker():
                 health = int(player['health'])
                 items = new_state['items']
                 n_ammo = int(player['ammo'])
-                nstate_vec, e_temp, elist = breaker(new_state, wall)
-                # !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
-
+                nstate_vec, e_temp, elist = breaker(new_state)
 
                 if int(pl_x) == int(pl_x2) and int(pl_y) == int(pl_y2):
                     if my_act == 'left' or my_act == 'right' or my_act == 'backward' or my_act == 'forward':
@@ -317,21 +273,20 @@ class Worker():
                     if elist[key] < e_list[key]:
 
                         if fired:
-                            reward += 40  # 10
+                            reward += 40
                 e_list = elist
-
 
                 if victory:
                     v_count += 1
                     reward += 200
-                    if step < 751:  # 1001:
+                    if step < 751:
                         reward += 10
 
                 pl_x = pl_x2
                 pl_y = pl_y2
 
                 if e_temp < e_count:
-                    reward += 100  # 25#10
+                    reward += 100
                     e_count -= 1
                     kills += 1
                     if step < 100:
@@ -340,13 +295,13 @@ class Worker():
                         reward += 10
 
                 if n_ammo > ammo:
-                    reward += 75  # 60  # 25
+                    reward += 75
 
                     a_count += 1
 
                 if health > hp:
 
-                    reward += 75  # 60
+                    reward += 75
 
                     h_count += 1
 
@@ -356,35 +311,30 @@ class Worker():
                 ammo = n_ammo
                 hp = health
 
-                nstate_vec[i3] = task_var  # 0.0#1.0
-                nstate_vec[i4] = self.check_shoot(new_state, walls)
+                nstate_vec[test_index] = task_var
+                nstate_vec[sight_index] = self.check_shoot(new_state, walls)
 
-
-
-
-                ep_rr += reward
+                ep_reward += reward
                 if not IS_TEST:
-
-                    self.gnet.remember(state_vec, act, prob, val, reward, done)
+                    self.strategist.remember(state_vec, act, prob, val, reward, done)
                 if (
                         not IS_TEST and total_step % UPDATE_GLOBAL_ITER == 0) or done:  # update global and assign to local net
                     # sync
                     if not IS_TEST:
-                        self.gnet.learn()
+                        self.strategist.learn()
 
                     if done:  # done and print information
 
                         if IS_TEST:
-                            r_list[episode] = performance  # append(performance)
-                            r_list2[episode] = ep_rr  # .append(ep_rr)
+                            r_list[episode] = performance
+                            r_list2[episode] = ep_reward
                             task = "combat"
                             if task_var == 2:
                                 task = "reload"
                             elif task_var == 3:
                                 task = "heal"
                             episode += 1
-                            self.info_list.put([self.g_ep.value, ep_rr, step, performance, kills, a_count, h_count])
-                            # task = get_task(task_var)
+                            self.info_list.put([self.g_ep.value, ep_reward, step, performance, kills, a_count, h_count])
                             my_av += performance
 
                             print(
@@ -396,38 +346,30 @@ class Worker():
                             )
 
                         else:
-                            self.info_list.put([self.g_ep.value, ep_rr, step, performance, kills, a_count, h_count])
+                            self.info_list.put([self.g_ep.value, ep_reward, step, performance, kills, a_count, h_count])
                             record_fell(self.g_ep, self.g_ep_r, performance, self.res_queue, self.name, t_count, kills,
                                         victory,
-                                        dead, a_count, h_count, task_var, self.my_ju, self.my_as)
+                                        dead, a_count, h_count, task_var, self.my_jump, self.my_asym)
                         break
                 state_vec = nstate_vec
                 state = new_state
                 total_step += 1
 
         if IS_TEST:
-            print(v_count)
-            av = np.average(r_list)
-            print(av)
-            self.my_q.put([v_count, np.average(r_list2), av])
+            self.test_results.put([v_count, np.average(r_list2), np.average(r_list)])
         self.res_queue.put(None)
-        self.my_ju.put(None)
-        self.my_as.put(None)
+        self.my_jump.put(None)
+        self.my_asym.put(None)
         self.info_list.put(None)
 
 
-
-
-
 def main(f, my_q, fname, my_r, f2, my_q2, f3):
-    N = 20
     batch_size = 5
     n_epochs = 4
     alpha = 0.0003
     myshape = np.zeros(STATE_SIZE)
 
-    gnet = Agent(n_actions=ACTION_SIZE,input_dims=myshape.shape, batch_size=batch_size, alpha=alpha, n_epochs=n_epochs)
-
+    gnet = Agent(n_actions=ACTION_SIZE, input_dims=myshape.shape, batch_size=batch_size, alpha=alpha, n_epochs=n_epochs)
 
     my_jump = mp.Queue()  # mp.Queue()
     my_asym = mp.Queue()
@@ -438,7 +380,6 @@ def main(f, my_q, fname, my_r, f2, my_q2, f3):
 
     if l == "Y":
         gnet.load_weights(f)
-
 
     global_ep, global_ep_r, res_queue = mp.Value('i', 0), mp.Value('d', 0.), mp.Queue()
 
@@ -455,7 +396,7 @@ def main(f, my_q, fname, my_r, f2, my_q2, f3):
         print("cpu alert")
         exit()
     worker = Worker(gnet, global_ep, global_ep_r, res_queue, 0, my_q, my_jump, my_asym,
-               my_info)
+                    my_info)
     worker.run()
     res = []  # record episode reward to plot
     m_jump = 0
@@ -500,8 +441,8 @@ def main(f, my_q, fname, my_r, f2, my_q2, f3):
         csvwriter.writerows(myinfo)
     csvfile.close()
 
-    m_kills = -1#250
-    m_items = -1#150
+    m_kills = -1  # 250
+    m_items = -1  # 150
 
     if not IS_TEST and (IS_CONTROL or (
             global_kills.value > m_kills and global_health.value > m_items and global_ammo.value > m_items)):
@@ -532,7 +473,6 @@ if __name__ == "__main__":
     if testing == "Y" or testing == "y":
         IS_TEST = True
 
-    # MAX_EP = 10
     if IS_TEST:
         MAX_EP = test_ep
 
@@ -550,12 +490,10 @@ if __name__ == "__main__":
         f2 = pref + "task4_" + str(n) + ".txt"
         f3 = f0 + "raw.csv"
         fname = f0 + ".png"
-        #if IS_TEST and not os.path.exists(f1):
-        #    print("file:", f1, "does not exist")
-        #    break
+
         print(f1)
         while True:
-            temp, my_r = main(f1, my_q, fname, my_r,f2, my_q2, f3)
+            temp, my_r = main(f1, my_q, fname, my_r, f2, my_q2, f3)
             if temp:
 
                 break
@@ -573,13 +511,9 @@ if __name__ == "__main__":
         f0 = pref + str(n)
         f1 = pref + "task4_" + str(n) + ".txt"
         fname = f0 + ".png"
-        #f3 = "act_" + f1
         f3 = f0 + "rawtest.csv"
-        #if IS_TEST and not os.path.exists(f3):
-        #    print("file:", f1, "does not exist")
-        #    break
-        print(f1)
-        temp, _ = main(f1, my_q, fname, my_r, f2, my_q2,f3)
+
+        temp, _ = main(f1, my_q, fname, my_r, f2, my_q2, f3)
     # name of csv file
     filename = "boot_ppo_task4.csv"
 
