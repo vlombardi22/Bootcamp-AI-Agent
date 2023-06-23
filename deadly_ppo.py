@@ -557,7 +557,7 @@ def train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_fi
 
         temp = train_metrics
         temp.append([m_jump, m_asym])
-        # TODO possibly return temp for consistency with fell_a3c.py although both ways work
+        # TODO possibly return temp for consistency with task45_a3c.py although both ways work
         return my_res2
 
     return my_res
