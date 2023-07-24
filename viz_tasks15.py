@@ -46,12 +46,12 @@ class SailonViz:
         self.time_delta = 1.0 / 35.0
         self.last_health = None
         self.task = task
-        # REAL NOVLETY VALS REMOVE IN PUBLIC
+        # REAL NOVELTY VALS REMOVE IN PUBLIC
         self.enemy_num = 4
         self.lives = 4
 
         self.use_new_spawn = 1
-        # REAL NOVLELTY IS REVEALED HERE REMOVE BEGORE SHIPPING
+        # REAL NOVELTY IS REVEALED HERE REMOVE BEFORE SHIPPING
         if self.level == 208:
             self.max_enemy_health = 8 * 10
         else:

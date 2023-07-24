@@ -408,11 +408,11 @@ if __name__ == "__main__":
 
         # Ctrl + C. 150000
         # 3000000
-        my_str = "vizdoom_task123" + str(i) + ".h5f"
+        my_str = "tasks123/vizdoom_task123" + str(i) + ".h5f"
 
         dqn.fit(env, nb_steps=targ_steps, visualize=False, verbose=2, nb_max_episode_steps=step_length)
-        my_str2 = "vizdoom_task6" + str(i) + ".h5f"
-        f3 = "vizdoom_task6" + str(i) + "raw.csv"
+        my_str2 = "task6/vizdoom_task6" + str(i) + ".h5f"
+        f3 = "task6/vizdoom_task6" + str(i) + "raw.csv"
         with open(f3, 'w', newline='') as csvfile:
             # creating a csv writer object
             csvwriter = csv.writer(csvfile)
@@ -450,8 +450,8 @@ if __name__ == "__main__":
         dqn = DQNAgent(model=model, nb_actions=nb_actions, memory=memory, nb_steps_warmup=100,
                        target_model_update=1e-2, policy=policy)
         dqn.compile(Adam(learning_rate=1e-3), metrics=['mae'])
-        my_str = "vizdoom_task6" + str(i) + ".h5f"
-        f3 = "vizdoom_task6" + str(i) + "rawtest.csv"
+        my_str = "task6/vizdoom_task6" + str(i) + ".h5f"
+        f3 = "task6/vizdoom_task6" + str(i) + "rawtest.csv"
         dqn.load_weights(my_str)
 
         t = dqn.test(env, nb_episodes=TEST_EPS, visualize=False)
@@ -465,7 +465,7 @@ if __name__ == "__main__":
         my_info = []
         env.wipe(my_info, True)
 
-    filename = "dqn_task6.csv"
+    filename = "results/dqn_task6.csv"
 
     if is_load == "Y" or is_load == "y":
         with open(filename, 'r') as file:
@@ -496,7 +496,7 @@ if __name__ == "__main__":
         csvwriter.writerows(rows)
     csvfile.close()
     print(len(my_res))
-    f = open("myout_dqn_task6.txt", "w")
+    f = open("results/myout_dqn_task6.txt", "w")
     f.write("dqn\n")
     for r in my_results:
         mystr = str(r) + "\n"
