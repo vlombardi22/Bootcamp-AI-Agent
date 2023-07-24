@@ -36,17 +36,17 @@ arguments
   a2c: Y/N 
   task: 4 or 5
   
-task45_boot_a3c_base tasks 1-3
+task45_boot_a3c_base tasks 4-5
 arguments:
   a2c: Y/N
   task: 4 or 5
 
-task45_boot_ppo tasks 1-3
+task45_boot_ppo tasks 4-5
 arguments
   control: Y/N
   task: 4 or 5
 
-task45_dqn tasks 1-3
+task45_dqn tasks 4-5
 arguments
   task: 4 or 5
   
@@ -59,7 +59,7 @@ task6_boot_ppo tasks 6
 arguments
   control: Y/N
 
-task6_boot_a3c_base tasks 1-3
+task6_boot_a3c_base tasks 6
 arguments:
   a2c: Y/N
 
