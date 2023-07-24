@@ -19,7 +19,7 @@ import csv
 os.environ["OMP_NUM_THREADS"] = "4"
 
 UPDATE_GLOBAL_ITER = 20
-MAX_EP = 1000
+MAX_EP = 10
 
 IS_CONTROL = False
 IS_TEST = False
@@ -377,7 +377,6 @@ def train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_fi
     n_epochs = 4
     alpha = 0.0003
     myshape = np.zeros(STATE_SIZE)
-
     strategist = Agent(n_actions=ACTION_SIZE, input_dims=myshape.shape, batch_size=batch_size, alpha=alpha,
                        n_epochs=n_epochs)
 
@@ -394,7 +393,7 @@ def train_agent(base_file, test_results, my_res, new_file, train_metrics, raw_fi
     else:
         print("training")
 
-    worker = Worker(strategist,  global_ep, global_ep_r, res_queue, test_results, my_jump, my_asym,
+    worker = Worker(strategist,  global_ep, global_ep_r, res_queue, 0, test_results, my_jump, my_asym,
                     my_info)
     worker.run()
     res = []  # record episode reward to plot
@@ -457,7 +456,7 @@ if __name__ == "__main__":
 
     n = len(sys.argv)
     control = "Y"
-    t_dir = "4"
+    t_dir = "5"
     if n == 3:
         t_dir = sys.argv[2]
     else:
@@ -481,9 +480,7 @@ if __name__ == "__main__":
     test_results = mp.Queue()
     my_res = np.zeros([MAX_EP])
     train_metrics = []
-    fname = "ppoboot_base_"
-    if is_control:
-        fname = "ppocontrol_base_"
+    fname = "base_ppo_"
     tdir = "task4"
     if t_dir == "5":
         TASK_5 = True
@@ -493,7 +490,7 @@ if __name__ == "__main__":
     for ind in range(num_agents):
         n = ind + starting_index
 
-        f_temp = fname + "task123_" + str(n)
+        f_temp = fname + str(n)
         f_temp2 = fname2 + tdir + str(n)
         base_file = f_temp + ".txt"
         new_file = fname + tdir + "_" + str(n) + ".txt"
